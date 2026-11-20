@@ -51,12 +51,6 @@ export async function fetchMaps({ forceRefresh = false } = {}) {
     return mapsMemoryCache;
   }
 
-  const stored = !forceRefresh ? readStoredMaps() : null;
-  if (stored && stored.isFresh) {
-    mapsMemoryCache = { ...stored, cachedAt: Date.now(), fromStaleCache: false };
-    return mapsMemoryCache;
-  }
-
   const endpoint = forceRefresh ? '/api/maps?refresh=1' : '/api/maps';
   try {
     const res = await fetch(endpoint, { headers: { Accept: 'application/json' } });
@@ -75,7 +69,7 @@ export async function fetchMaps({ forceRefresh = false } = {}) {
     };
     return mapsMemoryCache;
   } catch (err) {
-    const fallback = stored || readStoredMaps();
+    const fallback = readStoredMaps();
     if (fallback) {
       mapsMemoryCache = { ...fallback, cachedAt: Date.now(), fromStaleCache: true };
       return mapsMemoryCache;

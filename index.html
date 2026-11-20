@@ -40,7 +40,7 @@
 <link rel="preconnect" href="https://fonts.googleapis.com" />
 <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
 <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&family=JetBrains+Mono:wght@400;500&display=swap" rel="stylesheet" />
-<link rel="stylesheet" href="/assets/styles.css" />
+<link rel="stylesheet" href="/assets/styles.css?v=20261120c" />
 </head>
 <body>
   <header class="topbar">
@@ -73,62 +73,66 @@
   <main class="container">
     <!-- Maps View -->
     <section id="mapsView" aria-label="Maps">
-      <div class="toolbar">
-        <div class="search-wrap">
-          <span class="search-leading" id="mapSearchIcon"></span>
-          <input
-            type="search"
-            id="mapSearch"
-            class="input search-input"
-            autocomplete="off"
-            spellcheck="false"
-            data-i18n-placeholder="mapSearchPlaceholder"
-            placeholder="Harita veya yapımcı ara…"
-          />
-          <kbd class="kbd-hint" aria-hidden="true">/</kbd>
-          <button type="button" class="clear-btn hidden" id="mapSearchClear" data-i18n-title="clearSearch" aria-label="Clear"></button>
-          <div class="dropdown hidden" id="mapAutocomplete" role="listbox"></div>
-        </div>
+      <div class="controls-panel">
+        <div class="toolbar">
+          <div class="search-wrap">
+            <span class="search-leading" id="mapSearchIcon"></span>
+            <input
+              type="search"
+              id="mapSearch"
+              class="input search-input"
+              autocomplete="off"
+              spellcheck="false"
+              data-i18n-placeholder="mapSearchPlaceholder"
+              placeholder="Harita veya yapımcı ara…"
+            />
+            <kbd class="kbd-hint" aria-hidden="true">/</kbd>
+            <button type="button" class="clear-btn hidden" id="mapSearchClear" data-i18n-title="clearSearch" aria-label="Clear"></button>
+            <div class="dropdown hidden" id="mapAutocomplete" role="listbox"></div>
+          </div>
 
-        <select id="difficultySelect" class="select" aria-label="Difficulty">
-          <option value="" data-i18n="allDifficulties">Tüm zorluklar</option>
-          <option value="0" data-i18n="starZero">0 Yıldız</option>
-          <option value="1" data-i18n-star="1">1 Yıldız</option>
-          <option value="2" data-i18n-star="2">2 Yıldız</option>
-          <option value="3" data-i18n-star="3">3 Yıldız</option>
-          <option value="4" data-i18n-star="4">4 Yıldız</option>
-          <option value="5" data-i18n-star="5">5 Yıldız</option>
-        </select>
+          <div class="toolbar-selects">
+            <select id="difficultySelect" class="select" aria-label="Difficulty">
+              <option value="" data-i18n="allDifficulties">Tüm zorluklar</option>
+              <option value="0" data-i18n="starZero">0 Yıldız</option>
+              <option value="1" data-i18n-star="1">1 Yıldız</option>
+              <option value="2" data-i18n-star="2">2 Yıldız</option>
+              <option value="3" data-i18n-star="3">3 Yıldız</option>
+              <option value="4" data-i18n-star="4">4 Yıldız</option>
+              <option value="5" data-i18n-star="5">5 Yıldız</option>
+            </select>
 
-        <select id="sortSelect" class="select" aria-label="Sort">
-          <option value="release-desc" data-i18n="sortReleaseDesc">En Yeniler</option>
-          <option value="name-asc" data-i18n="sortNameAsc">Ad (A–Z)</option>
-          <option value="name-desc" data-i18n="sortNameDesc">Ad (Z–A)</option>
-          <option value="diff-asc" data-i18n="sortDiffAsc">Zorluk (Kolay → Zor)</option>
-          <option value="diff-desc" data-i18n="sortDiffDesc">Zorluk (Zor → Kolay)</option>
-          <option value="points-desc" data-i18n="sortPointsDesc">Puan (Yüksek → Düşük)</option>
-        </select>
+            <select id="sortSelect" class="select" aria-label="Sort">
+              <option value="release-desc" data-i18n="sortReleaseDesc">En Yeniler</option>
+              <option value="name-asc" data-i18n="sortNameAsc">A → Z</option>
+              <option value="name-desc" data-i18n="sortNameDesc">Z → A</option>
+              <option value="diff-asc" data-i18n="sortDiffAsc">Kolay → Zor</option>
+              <option value="diff-desc" data-i18n="sortDiffDesc">Zor → Kolay</option>
+              <option value="points-desc" data-i18n="sortPointsDesc">En Çok Puan</option>
+            </select>
+          </div>
 
-        <div class="toolbar-actions">
-          <button type="button" class="btn btn-toggle" id="favOnlyBtn" aria-pressed="false">
-            <span class="btn-icon" id="favBtnIcon"></span>
-            <span data-i18n="favOnly">Favoriler</span>
-            <span class="count-badge" id="favCountBadge">0</span>
-          </button>
+          <div class="toolbar-actions">
+            <button type="button" class="btn btn-toggle" id="favOnlyBtn" aria-pressed="false">
+              <span class="btn-icon" id="favBtnIcon"></span>
+              <span data-i18n="favOnly">Favoriler</span>
+              <span class="count-badge" id="favCountBadge">0</span>
+            </button>
 
-          <button type="button" class="btn" id="randomMapBtn" data-i18n-title="randomMapTitle" title="Filtrelenenlerden rastgele harita aç (R)">
-            <span class="btn-icon" id="randomBtnIcon"></span>
-            <span data-i18n="randomMap">Rastgele</span>
-          </button>
+            <button type="button" class="btn" id="randomMapBtn" data-i18n-title="randomMapTitle" title="Filtrelenenlerden rastgele harita aç (R)">
+              <span class="btn-icon" id="randomBtnIcon"></span>
+              <span data-i18n="randomMap">Rastgele</span>
+            </button>
 
-          <div class="segmented" role="group" aria-label="View mode">
-            <button type="button" class="seg-btn active" id="viewTableBtn" data-view="table" data-i18n-title="viewTableTitle" title="Liste görünümü"></button>
-            <button type="button" class="seg-btn" id="viewGridBtn" data-view="grid" data-i18n-title="viewGridTitle" title="Kart görünümü"></button>
+            <div class="segmented" role="group" aria-label="View mode">
+              <button type="button" class="seg-btn active" id="viewGridBtn" data-view="grid" data-i18n-title="viewGridTitle" title="Kart görünümü"></button>
+              <button type="button" class="seg-btn" id="viewTableBtn" data-view="table" data-i18n-title="viewTableTitle" title="Liste görünümü"></button>
+            </div>
           </div>
         </div>
-      </div>
 
-      <div class="category-strip" id="categoryStrip" role="tablist" aria-label="Categories"></div>
+        <div class="category-strip" id="categoryStrip" role="tablist" aria-label="Categories"></div>
+      </div>
 
       <div class="meta-bar">
         <div class="meta-left" id="resultsMeta"></div>
@@ -253,6 +257,6 @@
 
   <div class="toast" id="toast" role="status" aria-live="polite"></div>
 
-  <script type="module" src="/assets/app.js"></script>
+  <script type="module" src="/assets/app.js?v=20261120c"></script>
 </body>
 </html>

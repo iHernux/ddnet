@@ -1,4 +1,4 @@
-import { icons } from './icons.js';
+import { icons } from './icons.js?v=20261120c';
 import {
   detectInitialLang,
   escapeAttr,
@@ -9,14 +9,14 @@ import {
   isRecentRelease,
   parseReleaseMs,
   t,
-} from './i18n.js';
+} from './i18n.js?v=20261120c';
 import {
   fetchMapDetail,
   fetchMaps,
   fetchOnlineStats,
   fetchPlayerProfile,
   fetchPlayerSuggestions,
-} from './api.js';
+} from './api.js?v=20261120c';
 
 const CATEGORY_ORDER = [
   'Novice',
@@ -121,9 +121,9 @@ function readTheme() {
 
 function readViewMode() {
   try {
-    return localStorage.getItem(STORAGE_KEYS.viewMode) === 'grid' ? 'grid' : 'table';
+    return localStorage.getItem(STORAGE_KEYS.viewMode) === 'table' ? 'table' : 'grid';
   } catch {
-    return 'table';
+    return 'grid';
   }
 }
 
@@ -265,7 +265,7 @@ function syncUrl() {
     if (state.difficulty !== '') params.set('star', state.difficulty);
     if (state.mapper) params.set('mapper', state.mapper);
     if (state.sort !== 'release-desc') params.set('sort', state.sort);
-    if (state.viewMode !== 'table') params.set('view', state.viewMode);
+    if (state.viewMode !== 'grid') params.set('view', state.viewMode);
     if (state.favOnly) params.set('fav', '1');
     if (state.page > 1) params.set('page', String(state.page));
   }
@@ -445,7 +445,15 @@ function renderMetaBar() {
 
   const total = state.maps.length;
   const shown = state.filteredMaps.length;
-  const parts = [`<span class="tabular">${escapeHtml(tr('resultsCount', { shown, total }))}</span>`];
+  const locale = state.lang === 'tr' ? 'tr-TR' : 'en-US';
+  const countText =
+    shown === total
+      ? tr('resultsTotal', { total: total.toLocaleString(locale) })
+      : tr('resultsCount', {
+          shown: shown.toLocaleString(locale),
+          total: total.toLocaleString(locale),
+        });
+  const parts = [`<span class="tabular">${escapeHtml(countText)}</span>`];
 
   if (state.mapsFetchedAt) {
     parts.push('<span class="meta-sep" aria-hidden="true">·</span>');
@@ -455,9 +463,6 @@ function renderMetaBar() {
     parts.push('<span class="meta-sep" aria-hidden="true">·</span>');
     parts.push(`<span>${escapeHtml(tr('staleNotice'))}</span>`);
   }
-  parts.push(
-    `<button type="button" class="meta-refresh-btn" id="refreshMapsBtn">${icons.refresh(13)}<span>${escapeHtml(tr('refreshCatalog'))}</span></button>`
-  );
   meta.innerHTML = parts.join('');
 
   const tags = [];
@@ -1007,9 +1012,8 @@ function renderLiveStatusPill() {
 
   if (state.onlineData && typeof state.onlineData.ddnetPlayers === 'number') {
     pill.classList.add('online');
-    txt.textContent = tr('liveSummary', {
-      players: state.onlineData.ddnetPlayers.toLocaleString(state.lang === 'tr' ? 'tr-TR' : 'en-US'),
-    });
+    const num = state.onlineData.ddnetPlayers.toLocaleString(state.lang === 'tr' ? 'tr-TR' : 'en-US');
+    txt.innerHTML = `<span class="tabular">${escapeHtml(num)}</span><span class="live-suffix"> ${escapeHtml(tr('liveWord'))}</span>`;
   } else {
     pill.classList.remove('online');
     txt.textContent = tr('liveConnecting');
@@ -1715,11 +1719,6 @@ function bindEvents() {
       state.page = 1;
       applyMapFilters();
       renderMapsContent();
-      return;
-    }
-
-    if (target.closest('#refreshMapsBtn')) {
-      loadMapCatalog({ forceRefresh: true });
       return;
     }
 

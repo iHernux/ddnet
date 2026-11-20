@@ -265,17 +265,50 @@ select {
   flex: 1;
 }
 
-/* Toolbar */
+/* Controls Dock */
+.controls-panel {
+  background: var(--surface);
+  border: 1px solid var(--border);
+  border-radius: 12px;
+  padding: 12px;
+  margin-bottom: 12px;
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
+}
+
 .toolbar {
   display: flex;
   flex-wrap: wrap;
   align-items: center;
   gap: 8px;
-  margin-bottom: 12px;
+  margin-bottom: 0;
 }
 
+.toolbar-selects,
 .toolbar-actions {
   display: contents;
+}
+
+.controls-panel .input,
+.controls-panel .select,
+.controls-panel .btn,
+.controls-panel .segmented {
+  height: 38px;
+  background-color: var(--surface-2);
+}
+
+.controls-panel .btn-toggle.active {
+  background: var(--accent-soft);
+}
+
+.controls-panel .seg-btn {
+  height: 32px;
+}
+
+.controls-panel .seg-btn.active {
+  background: var(--surface);
+  box-shadow: 0 1px 2px rgba(0, 0, 0, 0.22);
 }
 
 .search-wrap {
@@ -364,14 +397,29 @@ select {
 
 .select {
   height: 36px;
-  padding: 0 28px 0 11px;
+  padding: 0 30px 0 11px;
   border-radius: 8px;
   border: 1px solid var(--border);
-  background: var(--surface);
+  background-color: var(--surface);
+  background-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='14' height='14' viewBox='0 0 24 24' fill='none' stroke='%238b95a7' stroke-width='2' stroke-linecap='round' stroke-linejoin='round'%3E%3Cpath d='m6 9 6 6 6-6'/%3E%3C/svg%3E");
+  background-repeat: no-repeat;
+  background-position: right 10px center;
+  background-size: 14px 14px;
+  -webkit-appearance: none;
+  appearance: none;
   color: var(--text);
   font-size: 13px;
   cursor: pointer;
   outline: none;
+  text-overflow: ellipsis;
+}
+
+#difficultySelect {
+  width: 146px;
+}
+
+#sortSelect {
+  width: 156px;
 }
 
 .select:focus,
@@ -382,7 +430,8 @@ select {
 .select-sm {
   height: 32px;
   font-size: 12px;
-  padding: 0 22px 0 9px;
+  padding: 0 26px 0 9px;
+  background-position: right 7px center;
 }
 
 .btn {
@@ -563,8 +612,12 @@ select {
   align-items: center;
   gap: 6px;
   overflow-x: auto;
-  padding: 2px 0 10px;
+  border-top: 1px solid var(--border);
+  padding: 10px 24px 0 0;
+  margin: 0;
   scrollbar-width: none;
+  -webkit-mask-image: linear-gradient(to right, #000 0%, #000 calc(100% - 26px), transparent 100%);
+  mask-image: linear-gradient(to right, #000 0%, #000 calc(100% - 26px), transparent 100%);
 }
 
 .category-strip::-webkit-scrollbar {
@@ -579,7 +632,7 @@ select {
   padding: 0 10px;
   border-radius: 7px;
   border: 1px solid var(--border);
-  background: var(--surface);
+  background: var(--surface-2);
   color: var(--text-secondary);
   font-size: 12.5px;
   font-weight: 500;
@@ -993,6 +1046,10 @@ select {
   align-items: center;
   justify-content: space-between;
   gap: 8px;
+}
+
+.card-title-row .cat-badge {
+  flex-shrink: 0;
 }
 
 .card-title {
@@ -1614,6 +1671,8 @@ select {
   }
   .topbar-left {
     gap: 8px;
+    flex-wrap: nowrap;
+    min-width: 0;
   }
   .brand {
     font-size: 14px;
@@ -1624,8 +1683,15 @@ select {
     font-size: 11.5px;
     gap: 5px;
   }
+  .live-suffix {
+    display: none;
+  }
   #steamBtn {
     display: none;
+  }
+  .topbar-actions {
+    flex-shrink: 0;
+    gap: 6px;
   }
   .icon-btn,
   .lang-btn {
@@ -1644,45 +1710,64 @@ select {
   .container {
     padding: 12px 12px 24px;
   }
+  .controls-panel {
+    padding: 10px;
+    gap: 8px;
+    border-radius: 11px;
+  }
   .toolbar {
-    display: grid;
-    grid-template-columns: 1fr 1fr;
+    display: flex;
+    flex-direction: column;
+    align-items: stretch;
     gap: 8px;
   }
   .search-wrap {
-    grid-column: 1 / -1;
-    min-width: 0;
-  }
-  .input,
-  .select {
-    font-size: 16px;
-    height: 40px;
-  }
-  .select {
+    flex: none;
     width: 100%;
     min-width: 0;
   }
+  .input {
+    font-size: 16px;
+    height: 40px;
+  }
+  .toolbar-selects {
+    display: grid;
+    grid-template-columns: 1fr 1fr;
+    gap: 8px;
+    width: 100%;
+  }
+  #difficultySelect,
+  #sortSelect {
+    width: 100%;
+    min-width: 0;
+    font-size: 14px;
+    height: 38px;
+  }
   .select-sm {
     height: 34px;
-    font-size: 14px;
+    font-size: 13px;
     width: auto;
   }
   .kbd-hint {
     display: none;
   }
   .toolbar-actions {
-    grid-column: 1 / -1;
-    display: flex;
-    align-items: center;
+    display: grid;
+    grid-template-columns: 1fr 1fr auto;
     gap: 8px;
+    width: 100%;
   }
   .toolbar-actions .btn {
-    flex: 1;
+    width: 100%;
     height: 38px;
+    padding: 0 10px;
+    justify-content: center;
   }
   .toolbar-actions .segmented {
-    flex-shrink: 0;
     height: 38px;
+  }
+  .category-strip {
+    padding-top: 8px;
   }
   .col-release,
   .col-points,
