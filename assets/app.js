@@ -1,4 +1,4 @@
-import { icons } from './icons.js?v=20261120e';
+import { icons } from './icons.js?v=20261120f';
 import {
   detectInitialLang,
   escapeAttr,
@@ -9,14 +9,14 @@ import {
   isRecentRelease,
   parseReleaseMs,
   t,
-} from './i18n.js?v=20261120e';
+} from './i18n.js?v=20261120f';
 import {
   fetchMapDetail,
   fetchMaps,
   fetchOnlineStats,
   fetchPlayerProfile,
   fetchPlayerSuggestions,
-} from './api.js?v=20261120e';
+} from './api.js?v=20261120f';
 
 const CATEGORY_ORDER = [
   'Novice',

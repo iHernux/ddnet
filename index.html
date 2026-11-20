@@ -1,5 +1,5 @@
 <!DOCTYPE html>
-<html lang="tr" data-theme="dark">
+<html lang="en" data-theme="dark">
 <head>
 <script>
 // Hostname-based redirect: production ddnet.pages.dev -> ddnet-archive.xyz (preserves branch previews like redesign.ddnet.pages.dev)
@@ -40,7 +40,7 @@
 <link rel="preconnect" href="https://fonts.googleapis.com" />
 <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
 <link href="https://fonts.googleapis.com/css2?family=Plus+Jakarta+Sans:wght@400;500;600;700&family=JetBrains+Mono:wght@400;500&display=swap" rel="stylesheet" />
-<link rel="stylesheet" href="/assets/styles.css?v=20261120e" />
+<link rel="stylesheet" href="/assets/styles.css?v=20261120f" />
 </head>
 <body>
   <header class="topbar">
@@ -50,22 +50,22 @@
           <img src="/apple-touch-icon.png" alt="DDNet" class="brand-logo" width="26" height="26" />
           <span class="brand-name" data-i18n="brand">DDNet Archive</span>
         </a>
-        <button type="button" class="live-pill" id="liveStatusBtn" data-i18n-title="liveBtnTitle" title="Canlı DDNet sunucu ve oyuncu durumu">
+        <button type="button" class="live-pill" id="liveStatusBtn" data-i18n-title="liveBtnTitle" title="Live DDNet servers and player count">
           <span class="live-dot" aria-hidden="true"></span>
-          <span id="liveStatusText" data-i18n="liveConnecting">Canlı veri…</span>
+          <span id="liveStatusText" data-i18n="liveConnecting">Live status…</span>
         </button>
       </div>
 
       <nav class="nav-tabs" aria-label="Primary">
-        <button type="button" class="nav-tab active" id="navMaps" data-tab="maps" data-i18n="navMaps">Haritalar</button>
-        <button type="button" class="nav-tab" id="navPlayers" data-tab="players" data-i18n="navPlayers">Oyuncular</button>
+        <button type="button" class="nav-tab active" id="navMaps" data-tab="maps" data-i18n="navMaps">Maps</button>
+        <button type="button" class="nav-tab" id="navPlayers" data-tab="players" data-i18n="navPlayers">Players</button>
       </nav>
 
       <div class="topbar-actions">
-        <a class="icon-btn" id="steamBtn" href="steam://rungameid/412220" data-i18n-title="steamBtnTitle" title="DDNet'i Steam'de başlat"></a>
-        <a class="icon-btn" id="githubBtn" href="https://github.com/ddnet/ddnet-maps" target="_blank" rel="noopener noreferrer" data-i18n-title="githubBtnTitle" title="Resmî ddnet-maps GitHub deposu"></a>
-        <button type="button" class="lang-btn" id="langBtn" data-i18n-title="langBtnTitle" title="Dili değiştir (TR / EN)">TR</button>
-        <button type="button" class="icon-btn" id="themeBtn" data-i18n-title="themeBtnTitle" title="Temayı değiştir"></button>
+        <a class="icon-btn" id="steamBtn" href="steam://rungameid/412220" data-i18n-title="steamBtnTitle" title="Launch DDNet on Steam"></a>
+        <a class="icon-btn" id="githubBtn" href="https://github.com/ddnet/ddnet-maps" target="_blank" rel="noopener noreferrer" data-i18n-title="githubBtnTitle" title="Official ddnet-maps GitHub repository"></a>
+        <button type="button" class="lang-btn" id="langBtn" data-i18n-title="langBtnTitle" title="Switch language (TR / EN)">EN</button>
+        <button type="button" class="icon-btn" id="themeBtn" data-i18n-title="themeBtnTitle" title="Toggle color theme"></button>
       </div>
     </div>
   </header>
@@ -84,7 +84,7 @@
               autocomplete="off"
               spellcheck="false"
               data-i18n-placeholder="mapSearchPlaceholder"
-              placeholder="Harita veya yapımcı ara…"
+              placeholder="Search map or mapper…"
             />
             <kbd class="kbd-hint" aria-hidden="true">/</kbd>
             <button type="button" class="clear-btn hidden" id="mapSearchClear" data-i18n-title="clearSearch" aria-label="Clear"></button>
@@ -93,40 +93,40 @@
 
           <div class="toolbar-selects">
             <select id="difficultySelect" class="select" aria-label="Difficulty">
-              <option value="" data-i18n="allDifficulties">Tüm zorluklar</option>
-              <option value="0" data-i18n="starZero">0 Yıldız</option>
-              <option value="1" data-i18n-star="1">1 Yıldız</option>
-              <option value="2" data-i18n-star="2">2 Yıldız</option>
-              <option value="3" data-i18n-star="3">3 Yıldız</option>
-              <option value="4" data-i18n-star="4">4 Yıldız</option>
-              <option value="5" data-i18n-star="5">5 Yıldız</option>
+              <option value="" data-i18n="allDifficulties">All difficulties</option>
+              <option value="0" data-i18n="starZero">0 Stars</option>
+              <option value="1" data-i18n-star="1">1 Stars</option>
+              <option value="2" data-i18n-star="2">2 Stars</option>
+              <option value="3" data-i18n-star="3">3 Stars</option>
+              <option value="4" data-i18n-star="4">4 Stars</option>
+              <option value="5" data-i18n-star="5">5 Stars</option>
             </select>
 
             <select id="sortSelect" class="select" aria-label="Sort">
-              <option value="release-desc" data-i18n="sortReleaseDesc">En Yeniler</option>
+              <option value="release-desc" data-i18n="sortReleaseDesc">Newest</option>
               <option value="name-asc" data-i18n="sortNameAsc">A → Z</option>
               <option value="name-desc" data-i18n="sortNameDesc">Z → A</option>
-              <option value="diff-asc" data-i18n="sortDiffAsc">Kolay → Zor</option>
-              <option value="diff-desc" data-i18n="sortDiffDesc">Zor → Kolay</option>
-              <option value="points-desc" data-i18n="sortPointsDesc">En Çok Puan</option>
+              <option value="diff-asc" data-i18n="sortDiffAsc">Easy → Hard</option>
+              <option value="diff-desc" data-i18n="sortDiffDesc">Hard → Easy</option>
+              <option value="points-desc" data-i18n="sortPointsDesc">Most Points</option>
             </select>
           </div>
 
           <div class="toolbar-actions">
             <button type="button" class="btn btn-toggle" id="favOnlyBtn" aria-pressed="false">
               <span class="btn-icon" id="favBtnIcon"></span>
-              <span data-i18n="favOnly">Favoriler</span>
+              <span data-i18n="favOnly">Favorites</span>
               <span class="count-badge" id="favCountBadge">0</span>
             </button>
 
-            <button type="button" class="btn" id="randomMapBtn" data-i18n-title="randomMapTitle" title="Filtrelenenlerden rastgele harita aç (R)">
+            <button type="button" class="btn" id="randomMapBtn" data-i18n-title="randomMapTitle" title="Open a random map from current results (R)">
               <span class="btn-icon" id="randomBtnIcon"></span>
-              <span data-i18n="randomMap">Rastgele</span>
+              <span data-i18n="randomMap">Random</span>
             </button>
 
             <div class="segmented" role="group" aria-label="View mode">
-              <button type="button" class="seg-btn active" id="viewGridBtn" data-view="grid" data-i18n-title="viewGridTitle" title="Kart görünümü"></button>
-              <button type="button" class="seg-btn" id="viewTableBtn" data-view="table" data-i18n-title="viewTableTitle" title="Liste görünümü"></button>
+              <button type="button" class="seg-btn active" id="viewGridBtn" data-view="grid" data-i18n-title="viewGridTitle" title="Card grid view"></button>
+              <button type="button" class="seg-btn" id="viewTableBtn" data-view="table" data-i18n-title="viewTableTitle" title="Table view"></button>
             </div>
           </div>
         </div>
@@ -142,15 +142,15 @@
       <div id="mapsSkeleton" class="skeleton-list"></div>
 
       <div id="mapsError" class="state-box hidden">
-        <div class="state-title" data-i18n="mapsLoadErrorTitle">Harita listesi yüklenemedi</div>
-        <div class="state-hint" data-i18n="mapsLoadErrorHint">DDNet sunucusuna şu an ulaşılamıyor. Biraz sonra tekrar deneyin.</div>
-        <button type="button" class="btn btn-primary" id="retryMapsBtn" data-i18n="retryBtn">Tekrar Dene</button>
+        <div class="state-title" data-i18n="mapsLoadErrorTitle">Could not load map catalog</div>
+        <div class="state-hint" data-i18n="mapsLoadErrorHint">DDNet upstream is currently unreachable. Please try again in a moment.</div>
+        <button type="button" class="btn btn-primary" id="retryMapsBtn" data-i18n="retryBtn">Retry</button>
       </div>
 
       <div id="mapsEmpty" class="state-box hidden">
-        <div class="state-title" data-i18n="emptyTitle">Eşleşen harita bulunamadı</div>
-        <div class="state-hint" data-i18n="emptyHint">Arama terimini veya aktif filtreleri değiştirerek tekrar deneyin.</div>
-        <button type="button" class="btn" id="emptyClearBtn" data-i18n="clearAllFilters">Filtreleri temizle</button>
+        <div class="state-title" data-i18n="emptyTitle">No maps match your filters</div>
+        <div class="state-hint" data-i18n="emptyHint">Try adjusting your search query or clearing active filters.</div>
+        <button type="button" class="btn" id="emptyClearBtn" data-i18n="clearAllFilters">Clear filters</button>
       </div>
 
       <div class="table-wrap hidden" id="mapsTableWrap">
@@ -158,12 +158,12 @@
           <thead>
             <tr>
               <th class="col-fav"></th>
-              <th data-i18n="colMap">Harita</th>
-              <th data-i18n="colCategory">Kategori</th>
-              <th data-i18n="colDifficulty">Zorluk</th>
-              <th class="col-num col-points" data-i18n="colPoints">Puan</th>
-              <th class="col-mapper" data-i18n="colMapper">Yapımcı</th>
-              <th class="col-release" data-i18n="colRelease">Yayın</th>
+              <th data-i18n="colMap">Map</th>
+              <th data-i18n="colCategory">Category</th>
+              <th data-i18n="colDifficulty">Difficulty</th>
+              <th class="col-num col-points" data-i18n="colPoints">Points</th>
+              <th class="col-mapper" data-i18n="colMapper">Mapper</th>
+              <th class="col-release" data-i18n="colRelease">Released</th>
               <th class="col-actions"></th>
             </tr>
           </thead>
@@ -180,9 +180,9 @@
           <span class="page-indicator" id="pageIndicator"></span>
           <button type="button" class="btn btn-icon-only" id="nextPageBtn" data-i18n-title="nextPage" aria-label="Next"></button>
           <select id="pageSizeSelect" class="select select-sm" data-i18n-title="perPageLabel" aria-label="Per page">
-            <option value="30" data-i18n-pagesize="30">30 / sayfa</option>
-            <option value="60" data-i18n-pagesize="60">60 / sayfa</option>
-            <option value="100" data-i18n-pagesize="100">100 / sayfa</option>
+            <option value="30" data-i18n-pagesize="30">30 / page</option>
+            <option value="60" data-i18n-pagesize="60">60 / page</option>
+            <option value="100" data-i18n-pagesize="100">100 / page</option>
           </select>
         </div>
       </div>
@@ -200,7 +200,7 @@
             autocomplete="off"
             spellcheck="false"
             data-i18n-placeholder="playerSearchPlaceholder"
-            placeholder="Oyuncu adı yazın (örn. BannZay)…"
+            placeholder="Enter player name (e.g. BannZay)…"
           />
           <button type="button" class="clear-btn hidden" id="playerSearchClear" data-i18n-title="clearSearch" aria-label="Clear"></button>
           <div class="dropdown hidden" id="playerAutocomplete" role="listbox"></div>
@@ -208,11 +208,11 @@
 
         <div class="quick-lists" id="playerQuickLists">
           <div class="quick-group hidden" id="playerFavSection">
-            <span class="quick-label" data-i18n="playerFavoritesTitle">Favori Oyuncular</span>
+            <span class="quick-label" data-i18n="playerFavoritesTitle">Favorite Players</span>
             <div class="quick-chips" id="playerFavList"></div>
           </div>
           <div class="quick-group hidden" id="playerHistorySection">
-            <span class="quick-label" data-i18n="playerHistoryTitle">Son Arananlar</span>
+            <span class="quick-label" data-i18n="playerHistoryTitle">Recent Searches</span>
             <div class="quick-chips" id="playerHistoryList"></div>
           </div>
         </div>
@@ -224,7 +224,7 @@
 
   <footer class="footer">
     <div class="footer-inner">
-      <span data-i18n="footerSource">Veriler ddnet.org üzerinden otomatik eşitlenir</span>
+      <span data-i18n="footerSource">Auto-synced with ddnet.org</span>
       <span class="footer-links">
         <span data-i18n="footerAuthor">© hernux</span>
         <span aria-hidden="true">·</span>
@@ -248,7 +248,7 @@
   <div class="modal-backdrop hidden" id="liveModal" role="dialog" aria-modal="true" aria-labelledby="liveModalTitle">
     <div class="modal modal-md">
       <div class="modal-header">
-        <h2 class="modal-title" id="liveModalTitle" data-i18n="liveModalTitle">Canlı DDNet Ağ Durumu</h2>
+        <h2 class="modal-title" id="liveModalTitle" data-i18n="liveModalTitle">Live DDNet Network Status</h2>
         <button type="button" class="icon-btn" id="liveModalClose" data-i18n-title="closeLabel" aria-label="Close"></button>
       </div>
       <div class="modal-body" id="liveModalBody"></div>
@@ -257,6 +257,6 @@
 
   <div class="toast" id="toast" role="status" aria-live="polite"></div>
 
-  <script type="module" src="/assets/app.js?v=20261120e"></script>
+  <script type="module" src="/assets/app.js?v=20261120f"></script>
 </body>
 </html>

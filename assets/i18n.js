@@ -280,14 +280,12 @@ export function detectInitialLang() {
   } catch {
     // Ignore storage errors
   }
-  const nav = typeof navigator !== 'undefined' ? (navigator.language || '').toLowerCase() : '';
-  if (nav.startsWith('en')) return 'en';
-  return 'tr';
+  return 'en';
 }
 
 export function t(lang, key, params = null) {
-  const dict = DICT[lang] || DICT.tr;
-  let str = dict[key] ?? DICT.tr[key] ?? key;
+  const dict = DICT[lang] || DICT.en;
+  let str = dict[key] ?? DICT.en[key] ?? key;
   if (params) {
     for (const [k, v] of Object.entries(params)) {
       str = str.replaceAll(`{${k}}`, String(v));
@@ -346,7 +344,7 @@ export function parseReleaseMs(input) {
   return Number.isFinite(ms) ? ms : 0;
 }
 
-export function formatDate(input, lang = 'tr') {
+export function formatDate(input, lang = 'en') {
   const ms = parseReleaseMs(input);
   if (!ms) return '—';
   try {
@@ -360,7 +358,7 @@ export function formatDate(input, lang = 'tr') {
   }
 }
 
-export function formatRelativeTime(unixSeconds, lang = 'tr') {
+export function formatRelativeTime(unixSeconds, lang = 'en') {
   const ms = parseReleaseMs(unixSeconds);
   if (!ms) return '—';
   const diffSec = Math.round((ms - Date.now()) / 1000);
