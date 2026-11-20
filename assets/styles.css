@@ -1808,7 +1808,6 @@ select {
     padding-top: 8px;
   }
   .col-release,
-  .col-points,
   .col-mapper,
   .col-actions,
   .thumb-sm {
@@ -1822,20 +1821,28 @@ select {
     word-break: break-word;
   }
   .col-fav {
-    width: 34px;
-    padding: 8px 4px;
+    width: 30px;
+    padding: 8px 2px;
+  }
+  .col-points {
+    width: 38px;
+    font-size: 12px;
+    color: var(--text-secondary);
   }
   .maps-table th,
   .maps-table td {
-    padding: 8px 6px;
+    padding: 8px 5px;
   }
   .cat-badge {
     font-size: 11px;
     padding: 2px 6px;
   }
+  .stars {
+    gap: 1px;
+  }
   .stars svg {
-    width: 11px;
-    height: 11px;
+    width: 10px;
+    height: 10px;
   }
   .pagination-bar {
     flex-direction: column;

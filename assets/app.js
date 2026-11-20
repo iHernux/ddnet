@@ -1,4 +1,4 @@
-import { icons } from './icons.js?v=20261120d';
+import { icons } from './icons.js?v=20261120e';
 import {
   detectInitialLang,
   escapeAttr,
@@ -9,14 +9,14 @@ import {
   isRecentRelease,
   parseReleaseMs,
   t,
-} from './i18n.js?v=20261120d';
+} from './i18n.js?v=20261120e';
 import {
   fetchMapDetail,
   fetchMaps,
   fetchOnlineStats,
   fetchPlayerProfile,
   fetchPlayerSuggestions,
-} from './api.js?v=20261120d';
+} from './api.js?v=20261120e';
 
 const CATEGORY_ORDER = [
   'Novice',
@@ -596,7 +596,7 @@ function renderMapsTable(maps) {
       </td>
       <td>${renderCategoryBadge(m.type)}</td>
       <td>${renderStars(m.difficulty)}</td>
-      <td class="col-num col-points">${m.points > 0 ? escapeHtml(String(m.points)) : '—'}</td>
+      <td class="col-num col-points">${escapeHtml(String(m.points ?? 0))}</td>
       <td class="col-mapper">
         ${
           m.mapper
@@ -644,7 +644,7 @@ function renderMapsGrid(maps) {
         </div>
         <div class="card-footer">
           ${renderStars(m.difficulty)}
-          <span class="tabular">${m.points > 0 ? escapeHtml(tr('pointsUnit', { n: m.points })) : ''} · ${escapeHtml(formatDate(m.release, state.lang))}</span>
+          <span class="tabular">${escapeHtml(tr('pointsUnit', { n: m.points ?? 0 }))} · ${escapeHtml(formatDate(m.release, state.lang))}</span>
         </div>
       </div>
     </article>`;
