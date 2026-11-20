@@ -1,4 +1,4 @@
-import { icons } from './icons.js?v=20261120c';
+import { icons } from './icons.js?v=20261120d';
 import {
   detectInitialLang,
   escapeAttr,
@@ -9,14 +9,14 @@ import {
   isRecentRelease,
   parseReleaseMs,
   t,
-} from './i18n.js?v=20261120c';
+} from './i18n.js?v=20261120d';
 import {
   fetchMapDetail,
   fetchMaps,
   fetchOnlineStats,
   fetchPlayerProfile,
   fetchPlayerSuggestions,
-} from './api.js?v=20261120c';
+} from './api.js?v=20261120d';
 
 const CATEGORY_ORDER = [
   'Novice',
@@ -324,7 +324,6 @@ function applyTranslations() {
 }
 
 function hydrateStaticIcons() {
-  $('brandIcon').innerHTML = icons.logo(20);
   $('steamBtn').innerHTML = icons.gamepad(16);
   $('githubBtn').innerHTML = icons.github(16);
   $('mapSearchIcon').innerHTML = icons.search(15);
