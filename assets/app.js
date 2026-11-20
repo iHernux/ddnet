@@ -97,6 +97,7 @@ const state = {
   activeMapName: null,
   activeMapDetail: null,
   activeMapTab: 'ranks',
+  mapDetailError: false,
   mapDetailReqId: 0,
 
   mapAcIndex: -1,
@@ -580,8 +581,13 @@ function renderMapsTable(maps) {
       <td>
         <div class="map-cell">
           ${thumbHtml}
-          <button type="button" class="map-name-btn" data-open-map="${escapeAttr(m.name)}">${escapeHtml(m.name)}</button>
-          ${recent ? `<span class="new-tag">${escapeHtml(tr('newBadge'))}</span>` : ''}
+          <div class="map-cell-text">
+            <div class="map-cell-title">
+              <button type="button" class="map-name-btn" data-open-map="${escapeAttr(m.name)}">${escapeHtml(m.name)}</button>
+              ${recent ? `<span class="new-tag">${escapeHtml(tr('newBadge'))}</span>` : ''}
+            </div>
+            ${m.mapper ? `<div class="map-mobile-sub">${escapeHtml(m.mapper)}</div>` : ''}
+          </div>
         </div>
       </td>
       <td>${renderCategoryBadge(m.type)}</td>
@@ -727,6 +733,28 @@ function highlightDropdownItem(box, index) {
   if (items[index]) items[index].scrollIntoView({ block: 'nearest' });
 }
 
+// Body Scroll Lock (prevents background scrolling on iOS/Android & desktop when a modal is open)
+let lockedScrollY = 0;
+let isBodyLocked = false;
+
+function syncBodyScrollLock() {
+  const anyOpen =
+    !$('mapModal').classList.contains('hidden') || !$('liveModal').classList.contains('hidden');
+  if (anyOpen && !isBodyLocked) {
+    lockedScrollY = window.scrollY || document.documentElement.scrollTop || 0;
+    isBodyLocked = true;
+    document.documentElement.classList.add('modal-open');
+    document.body.classList.add('modal-open');
+    document.body.style.top = `-${lockedScrollY}px`;
+  } else if (!anyOpen && isBodyLocked) {
+    isBodyLocked = false;
+    document.documentElement.classList.remove('modal-open');
+    document.body.classList.remove('modal-open');
+    document.body.style.top = '';
+    window.scrollTo(0, lockedScrollY);
+  }
+}
+
 // Map Detail Modal
 function openMapModal(mapName) {
   const baseMap =
@@ -741,7 +769,7 @@ function openMapModal(mapName) {
       width: 0,
       height: 0,
       tiles: [],
-      thumbnail: `https://ddnet.org/ranks/maps/${encodeURIComponent(mapName)}.png`,
+      thumbnail: `https://ddnet.org/ranks/maps/${encodeURIComponent(mapName.replace(/\s+/g, '_'))}.png`,
       website: `https://ddnet.org/maps/${encodeURIComponent(mapName)}`,
       webPreview: `https://ddnet.org/mappreview/?map=${encodeURIComponent(mapName)}`,
     };
@@ -749,22 +777,28 @@ function openMapModal(mapName) {
   state.activeMapName = baseMap.name;
   state.activeMapDetail = null;
   state.activeMapTab = 'ranks';
+  state.mapDetailError = false;
   const reqId = ++state.mapDetailReqId;
 
   $('mapModalTitle').textContent = baseMap.name;
-  renderMapModalBody(baseMap, null, true, false);
+  renderMapModalShell(baseMap);
+  updateMapModalDynamicSections(baseMap, null, true, false);
   $('mapModal').classList.remove('hidden');
+  $('mapModalBody').scrollTop = 0;
+  syncBodyScrollLock();
   syncUrl();
 
   fetchMapDetail(baseMap.name)
     .then((detail) => {
       if (reqId !== state.mapDetailReqId) return;
       state.activeMapDetail = detail;
-      renderMapModalBody(baseMap, detail, false, false);
+      state.mapDetailError = false;
+      updateMapModalDynamicSections(baseMap, detail, false, false);
     })
     .catch(() => {
       if (reqId !== state.mapDetailReqId) return;
-      renderMapModalBody(baseMap, null, false, true);
+      state.mapDetailError = true;
+      updateMapModalDynamicSections(baseMap, null, false, true);
     });
 }
 
@@ -772,67 +806,28 @@ function closeMapModal() {
   $('mapModal').classList.add('hidden');
   state.activeMapName = null;
   state.activeMapDetail = null;
+  state.mapDetailError = false;
   state.mapDetailReqId += 1;
+  syncBodyScrollLock();
   syncUrl();
 }
 
-function renderMapModalBody(base, detail, isLoading, hasError) {
+function renderMapModalShell(base) {
   const body = $('mapModalBody');
-  const mapName = detail?.name || base.name;
-  const type = detail?.type || base.type;
-  const difficulty = detail?.difficulty ?? base.difficulty;
-  const points = detail?.points ?? base.points;
-  const mapper = detail?.mapper ?? base.mapper;
-  const release = detail?.release ?? base.release;
-  const width = detail?.width ?? base.width;
-  const height = detail?.height ?? base.height;
-  const tiles = Array.isArray(detail?.tiles) ? detail.tiles : base.tiles || [];
-  const thumbnail = detail?.thumbnail || base.thumbnail;
-  const website = detail?.website || base.website || `https://ddnet.org/maps/${encodeURIComponent(mapName)}`;
+  const mapName = base.name;
+  const type = base.type || 'Other';
+  const difficulty = base.difficulty ?? 0;
+  const mapper = base.mapper || '';
+  const thumbnail = base.thumbnail || '';
+  const website = base.website || `https://ddnet.org/maps/${encodeURIComponent(mapName)}`;
   const webPreview =
-    detail?.web_preview || base.webPreview || `https://ddnet.org/mappreview/?map=${encodeURIComponent(mapName)}`;
+    base.webPreview || `https://ddnet.org/mappreview/?map=${encodeURIComponent(mapName)}`;
   const isFav = state.mapFavs.has(mapName);
-
-  const avgTimeRaw = detail?.average_time ?? detail?.median_time;
-  const finishersCount = detail?.finishers;
-  const finishesCount = detail?.finishes;
-  const biggestTeam = detail?.biggest_team;
-
-  const tilesHtml =
-    tiles.length > 0
-      ? `<div>
-          <div class="section-heading">${escapeHtml(tr('mapDetailTilesTitle'))}</div>
-          <div class="tiles-strip">
-            ${tiles
-              .map(
-                (tile) =>
-                  `<span class="tile-chip" title="${escapeAttr(tile)}"><img src="https://ddnet.org/tiles/${encodeURIComponent(tile)}.png" alt="${escapeAttr(tile)}" loading="lazy" /></span>`
-              )
-              .join('')}
-          </div>
-        </div>`
-      : '';
-
-  let recordsSection = '';
-  if (isLoading) {
-    recordsSection = `<div class="state-hint">${escapeHtml(tr('mapDetailLoadingRecords'))}</div>`;
-  } else if (hasError) {
-    recordsSection = `<div class="state-hint">${escapeHtml(tr('mapDetailRecordsError'))}</div>`;
-  } else if (detail) {
-    recordsSection = `<div>
-      <div class="tabs-bar">
-        <button type="button" class="tab-btn${state.activeMapTab === 'ranks' ? ' active' : ''}" data-map-tab="ranks">${escapeHtml(tr('mapDetailTabRanks'))}</button>
-        <button type="button" class="tab-btn${state.activeMapTab === 'team' ? ' active' : ''}" data-map-tab="team">${escapeHtml(tr('mapDetailTabTeam'))}</button>
-        <button type="button" class="tab-btn${state.activeMapTab === 'most' ? ' active' : ''}" data-map-tab="most">${escapeHtml(tr('mapDetailTabMost'))}</button>
-      </div>
-      <div id="mapRecordsPanel">${renderMapRecordsTab(detail, state.activeMapTab)}</div>
-    </div>`;
-  }
 
   body.innerHTML = `
     ${
       thumbnail
-        ? `<div class="modal-hero"><img src="${escapeAttr(thumbnail)}" alt="${escapeAttr(mapName)}" /></div>`
+        ? `<div class="modal-hero"><img id="mapModalHeroImg" src="${escapeAttr(thumbnail)}" alt="${escapeAttr(mapName)}" /></div>`
         : ''
     }
     <div class="modal-meta-row">
@@ -852,7 +847,36 @@ function renderMapModalBody(base, detail, isLoading, hasError) {
       <button type="button" class="btn btn-sm btn-toggle${isFav ? ' active' : ''}" data-modal-fav="${escapeAttr(mapName)}">${isFav ? icons.starFilled(14) : icons.star(14)}<span>${escapeHtml(tr('mapDetailFavBtn'))}</span></button>
     </div>
 
-    <div class="stats-grid-4">
+    <div id="mapModalStats"></div>
+    <div id="mapModalTiles"></div>
+    <div id="mapModalRecords"></div>
+  `;
+}
+
+function updateMapModalDynamicSections(base, detail, isLoading, hasError) {
+  const heroImg = $('mapModalHeroImg');
+  if (heroImg && detail?.thumbnail && heroImg.getAttribute('src') !== detail.thumbnail) {
+    heroImg.closest('.modal-hero')?.classList.remove('hidden');
+    heroImg.style.display = '';
+    heroImg.src = detail.thumbnail;
+  }
+
+  const mapName = detail?.name || base.name;
+  const difficulty = detail?.difficulty ?? base.difficulty ?? 0;
+  const points = detail?.points ?? base.points ?? 0;
+  const release = detail?.release ?? base.release ?? '';
+  const width = detail?.width ?? base.width ?? 0;
+  const height = detail?.height ?? base.height ?? 0;
+  const tiles = Array.isArray(detail?.tiles) ? detail.tiles : base.tiles || [];
+
+  const avgTimeRaw = detail?.average_time ?? detail?.median_time;
+  const finishersCount = detail?.finishers;
+  const finishesCount = detail?.finishes;
+  const biggestTeam = detail?.biggest_team;
+
+  const statsEl = $('mapModalStats');
+  if (statsEl) {
+    statsEl.innerHTML = `<div class="stats-grid-4">
       <div class="metric-box"><div class="metric-label">${escapeHtml(tr('mapDetailStatsPoints'))}</div><div class="metric-value">${points > 0 ? escapeHtml(String(points)) : '—'}</div></div>
       <div class="metric-box"><div class="metric-label">${escapeHtml(tr('mapDetailStatsFinishers'))}</div><div class="metric-value">${finishersCount !== undefined ? escapeHtml(finishersCount.toLocaleString()) : '—'}</div></div>
       <div class="metric-box"><div class="metric-label">${escapeHtml(tr('mapDetailStatsFinishes'))}</div><div class="metric-value">${finishesCount !== undefined ? escapeHtml(finishesCount.toLocaleString()) : '—'}</div></div>
@@ -861,11 +885,46 @@ function renderMapModalBody(base, detail, isLoading, hasError) {
       <div class="metric-box"><div class="metric-label">${escapeHtml(tr('mapDetailStatsSize'))}</div><div class="metric-value tabular">${width && height ? `${width} × ${height}` : '—'}</div></div>
       <div class="metric-box"><div class="metric-label">${escapeHtml(tr('mapDetailStatsBiggestTeam'))}</div><div class="metric-value">${biggestTeam ? escapeHtml(tr('mapDetailPlayersUnit', { n: biggestTeam })) : '—'}</div></div>
       <div class="metric-box"><div class="metric-label">${escapeHtml(tr('mapDetailStatsDifficulty'))}</div><div class="metric-value">${difficulty} / 5</div></div>
-    </div>
+    </div>`;
+  }
 
-    ${tilesHtml}
-    ${recordsSection}
-  `;
+  const tilesEl = $('mapModalTiles');
+  if (tilesEl) {
+    tilesEl.innerHTML =
+      tiles.length > 0
+        ? `<div>
+            <div class="section-heading">${escapeHtml(tr('mapDetailTilesTitle'))}</div>
+            <div class="tiles-strip">
+              ${tiles
+                .map(
+                  (tile) =>
+                    `<span class="tile-chip" title="${escapeAttr(tile)}"><img src="https://ddnet.org/tiles/${encodeURIComponent(tile)}.png" alt="${escapeAttr(tile)}" loading="lazy" /></span>`
+                )
+                .join('')}
+            </div>
+          </div>`
+        : '';
+  }
+
+  const recordsEl = $('mapModalRecords');
+  if (recordsEl) {
+    if (isLoading) {
+      recordsEl.innerHTML = `<div class="state-hint">${escapeHtml(tr('mapDetailLoadingRecords'))}</div>`;
+    } else if (hasError) {
+      recordsEl.innerHTML = `<div class="state-hint">${escapeHtml(tr('mapDetailRecordsError'))}</div>`;
+    } else if (detail) {
+      recordsEl.innerHTML = `<div>
+        <div class="tabs-bar">
+          <button type="button" class="tab-btn${state.activeMapTab === 'ranks' ? ' active' : ''}" data-map-tab="ranks">${escapeHtml(tr('mapDetailTabRanks'))}</button>
+          <button type="button" class="tab-btn${state.activeMapTab === 'team' ? ' active' : ''}" data-map-tab="team">${escapeHtml(tr('mapDetailTabTeam'))}</button>
+          <button type="button" class="tab-btn${state.activeMapTab === 'most' ? ' active' : ''}" data-map-tab="most">${escapeHtml(tr('mapDetailTabMost'))}</button>
+        </div>
+        <div id="mapRecordsPanel">${renderMapRecordsTab(detail, state.activeMapTab)}</div>
+      </div>`;
+    } else {
+      recordsEl.innerHTML = '';
+    }
+  }
 }
 
 function renderMapRecordsTab(detail, tab) {
@@ -972,12 +1031,15 @@ async function loadOnlineData() {
 
 function openLiveModal() {
   $('liveModal').classList.remove('hidden');
+  $('liveModalBody').scrollTop = 0;
+  syncBodyScrollLock();
   renderLiveModal();
   loadOnlineData();
 }
 
 function closeLiveModal() {
   $('liveModal').classList.add('hidden');
+  syncBodyScrollLock();
 }
 
 function renderLiveModal() {
@@ -1344,7 +1406,11 @@ function bindEvents() {
     (e) => {
       const target = e.target;
       if (target && target.tagName === 'IMG') {
-        target.style.display = 'none';
+        if (target.id === 'mapModalHeroImg') {
+          target.closest('.modal-hero')?.classList.add('hidden');
+        } else {
+          target.style.display = 'none';
+        }
       }
     },
     true
@@ -1383,7 +1449,13 @@ function bindEvents() {
     if (!$('liveModal').classList.contains('hidden')) renderLiveModal();
     if (!$('mapModal').classList.contains('hidden') && state.activeMapName) {
       const base = state.maps.find((m) => m.name === state.activeMapName) || { name: state.activeMapName };
-      renderMapModalBody(base, state.activeMapDetail, false, false);
+      renderMapModalShell(base);
+      updateMapModalDynamicSections(
+        base,
+        state.activeMapDetail,
+        !state.activeMapDetail && !state.mapDetailError,
+        state.mapDetailError
+      );
     }
   });
 
@@ -1690,8 +1762,9 @@ function bindEvents() {
 
     const liveMapEl = target.closest('[data-live-open-map]');
     if (liveMapEl) {
+      const targetName = liveMapEl.getAttribute('data-live-open-map');
+      openMapModal(targetName);
       closeLiveModal();
-      openMapModal(liveMapEl.getAttribute('data-live-open-map'));
       return;
     }
 

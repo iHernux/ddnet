@@ -21,7 +21,7 @@
 })();
 </script>
 <meta charset="UTF-8" />
-<meta name="viewport" content="width=device-width, initial-scale=1.0" />
+<meta name="viewport" content="width=device-width, initial-scale=1.0, viewport-fit=cover" />
 <title>DDNet Archive – Player Stats, Map Search &amp; DDNet Data</title>
 <meta name="description" content="DDNet Archive provides fast access to DDNet player statistics, live map catalog, rankings and game data." />
 <link rel="canonical" href="https://ddnet-archive.xyz/" />
@@ -109,20 +109,22 @@
           <option value="points-desc" data-i18n="sortPointsDesc">Puan (Yüksek → Düşük)</option>
         </select>
 
-        <button type="button" class="btn btn-toggle" id="favOnlyBtn" aria-pressed="false">
-          <span class="btn-icon" id="favBtnIcon"></span>
-          <span data-i18n="favOnly">Favoriler</span>
-          <span class="count-badge" id="favCountBadge">0</span>
-        </button>
+        <div class="toolbar-actions">
+          <button type="button" class="btn btn-toggle" id="favOnlyBtn" aria-pressed="false">
+            <span class="btn-icon" id="favBtnIcon"></span>
+            <span data-i18n="favOnly">Favoriler</span>
+            <span class="count-badge" id="favCountBadge">0</span>
+          </button>
 
-        <button type="button" class="btn" id="randomMapBtn" data-i18n-title="randomMapTitle" title="Filtrelenenlerden rastgele harita aç (R)">
-          <span class="btn-icon" id="randomBtnIcon"></span>
-          <span data-i18n="randomMap">Rastgele</span>
-        </button>
+          <button type="button" class="btn" id="randomMapBtn" data-i18n-title="randomMapTitle" title="Filtrelenenlerden rastgele harita aç (R)">
+            <span class="btn-icon" id="randomBtnIcon"></span>
+            <span data-i18n="randomMap">Rastgele</span>
+          </button>
 
-        <div class="segmented" role="group" aria-label="View mode">
-          <button type="button" class="seg-btn active" id="viewTableBtn" data-view="table" data-i18n-title="viewTableTitle" title="Liste görünümü"></button>
-          <button type="button" class="seg-btn" id="viewGridBtn" data-view="grid" data-i18n-title="viewGridTitle" title="Kart görünümü"></button>
+          <div class="segmented" role="group" aria-label="View mode">
+            <button type="button" class="seg-btn active" id="viewTableBtn" data-view="table" data-i18n-title="viewTableTitle" title="Liste görünümü"></button>
+            <button type="button" class="seg-btn" id="viewGridBtn" data-view="grid" data-i18n-title="viewGridTitle" title="Kart görünümü"></button>
+          </div>
         </div>
       </div>
 
