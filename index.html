@@ -26,13 +26,21 @@
 <meta name="description" content="DDNet Archive provides fast access to DDNet player statistics, live map catalog, rankings and game data." />
 <link rel="canonical" href="https://ddnet-archive.xyz/" />
 <meta property="og:type" content="website" />
+<meta property="og:site_name" content="DDNet Archive" />
 <meta property="og:url" content="https://ddnet-archive.xyz/" />
 <meta property="og:title" content="DDNet Archive – Player Stats, Map Search &amp; DDNet Data" />
 <meta property="og:description" content="DDNet Archive provides fast access to DDNet player statistics, live map catalog, rankings and game data." />
+<meta property="og:image" content="https://ddnet-archive.xyz/og-image.jpg" />
+<meta property="og:image:width" content="1376" />
+<meta property="og:image:height" content="768" />
 <meta name="twitter:card" content="summary_large_image" />
 <meta name="twitter:url" content="https://ddnet-archive.xyz/" />
 <meta name="twitter:title" content="DDNet Archive – Player Stats, Map Search &amp; DDNet Data" />
 <meta name="twitter:description" content="DDNet Archive provides fast access to DDNet player statistics, live map catalog, rankings and game data." />
+<meta name="twitter:image" content="https://ddnet-archive.xyz/og-image.jpg" />
+<!-- JSONLD_START -->
+<script type="application/ld+json">{"@context":"https://schema.org","@type":"WebSite","name":"DDNet Archive","url":"https://ddnet-archive.xyz/","description":"Live DDNet map catalog, rankings, and player statistics auto-synced with ddnet.org.","potentialAction":{"@type":"SearchAction","target":{"@type":"EntryPoint","urlTemplate":"https://ddnet-archive.xyz/?q={search_term_string}"},"query-input":"required name=search_term_string"}}</script>
+<!-- JSONLD_END -->
 <link rel="icon" type="image/x-icon" href="/favicon.ico" />
 <link rel="icon" type="image/png" sizes="32x32" href="/favicon-32x32.png" />
 <link rel="icon" type="image/png" sizes="16x16" href="/favicon-16x16.png" />
@@ -40,7 +48,7 @@
 <link rel="preconnect" href="https://fonts.googleapis.com" />
 <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
 <link href="https://fonts.googleapis.com/css2?family=Plus+Jakarta+Sans:wght@400;500;600;700&family=JetBrains+Mono:wght@400;500&display=swap" rel="stylesheet" />
-<link rel="stylesheet" href="/assets/styles.css?v=20261120f" />
+<link rel="stylesheet" href="/assets/styles.css?v=20261121a" />
 </head>
 <body>
   <header class="topbar">
@@ -71,6 +79,8 @@
   </header>
 
   <main class="container">
+    <h1 id="homeSrHeading" class="sr-only">DDNet Archive – Live DDNet Map Catalog, Rankings &amp; Player Statistics</h1>
+    <!-- SSR_SLOT -->
     <!-- Maps View -->
     <section id="mapsView" aria-label="Maps">
       <div class="controls-panel">
@@ -131,7 +141,23 @@
           </div>
         </div>
 
-        <div class="category-strip" id="categoryStrip" role="tablist" aria-label="Categories"></div>
+        <div class="category-strip" id="categoryStrip" role="tablist" aria-label="Categories">
+          <a href="/" class="cat-pill active" data-cat-filter=""><span>All</span></a>
+          <a href="/category/Novice" class="cat-pill" data-cat-filter="Novice" data-cat="Novice"><span class="cat-dot" aria-hidden="true"></span><span>Novice</span></a>
+          <a href="/category/Moderate" class="cat-pill" data-cat-filter="Moderate" data-cat="Moderate"><span class="cat-dot" aria-hidden="true"></span><span>Moderate</span></a>
+          <a href="/category/Brutal" class="cat-pill" data-cat-filter="Brutal" data-cat="Brutal"><span class="cat-dot" aria-hidden="true"></span><span>Brutal</span></a>
+          <a href="/category/Insane" class="cat-pill" data-cat-filter="Insane" data-cat="Insane"><span class="cat-dot" aria-hidden="true"></span><span>Insane</span></a>
+          <a href="/category/Dummy" class="cat-pill" data-cat-filter="Dummy" data-cat="Dummy"><span class="cat-dot" aria-hidden="true"></span><span>Dummy</span></a>
+          <a href="/category/Solo" class="cat-pill" data-cat-filter="Solo" data-cat="Solo"><span class="cat-dot" aria-hidden="true"></span><span>Solo</span></a>
+          <a href="/category/Race" class="cat-pill" data-cat-filter="Race" data-cat="Race"><span class="cat-dot" aria-hidden="true"></span><span>Race</span></a>
+          <a href="/category/Oldschool" class="cat-pill" data-cat-filter="Oldschool" data-cat="Oldschool"><span class="cat-dot" aria-hidden="true"></span><span>Oldschool</span></a>
+          <a href="/category/DDmaX.Easy" class="cat-pill" data-cat-filter="DDmaX.Easy" data-cat="DDmaX.Easy"><span class="cat-dot" aria-hidden="true"></span><span>DDmaX.Easy</span></a>
+          <a href="/category/DDmaX.Next" class="cat-pill" data-cat-filter="DDmaX.Next" data-cat="DDmaX.Next"><span class="cat-dot" aria-hidden="true"></span><span>DDmaX.Next</span></a>
+          <a href="/category/DDmaX.Pro" class="cat-pill" data-cat-filter="DDmaX.Pro" data-cat="DDmaX.Pro"><span class="cat-dot" aria-hidden="true"></span><span>DDmaX.Pro</span></a>
+          <a href="/category/DDmaX.Nut" class="cat-pill" data-cat-filter="DDmaX.Nut" data-cat="DDmaX.Nut"><span class="cat-dot" aria-hidden="true"></span><span>DDmaX.Nut</span></a>
+          <a href="/category/Fun" class="cat-pill" data-cat-filter="Fun" data-cat="Fun"><span class="cat-dot" aria-hidden="true"></span><span>Fun</span></a>
+          <a href="/category/Event" class="cat-pill" data-cat-filter="Event" data-cat="Event"><span class="cat-dot" aria-hidden="true"></span><span>Event</span></a>
+        </div>
       </div>
 
       <div class="meta-bar">
@@ -257,6 +283,6 @@
 
   <div class="toast" id="toast" role="status" aria-live="polite"></div>
 
-  <script type="module" src="/assets/app.js?v=20261120f"></script>
+  <script type="module" src="/assets/app.js?v=20261121a"></script>
 </body>
 </html>

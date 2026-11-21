@@ -1,4 +1,4 @@
-import { icons } from './icons.js?v=20261120f';
+import { icons } from './icons.js?v=20261121a';
 import {
   detectInitialLang,
   escapeAttr,
@@ -9,14 +9,14 @@ import {
   isRecentRelease,
   parseReleaseMs,
   t,
-} from './i18n.js?v=20261120f';
+} from './i18n.js?v=20261121a';
 import {
   fetchMapDetail,
   fetchMaps,
   fetchOnlineStats,
   fetchPlayerProfile,
   fetchPlayerSuggestions,
-} from './api.js?v=20261120f';
+} from './api.js?v=20261121a';
 
 const CATEGORY_ORDER = [
   'Novice',
@@ -211,8 +211,77 @@ async function copyText(text, feedbackMessage) {
   }
 }
 
+const SITE_ORIGIN = 'https://ddnet-archive.xyz';
+const DEFAULT_TITLE = 'DDNet Archive – Player Stats, Map Search & DDNet Data';
+
+function isModifiedClick(e) {
+  return Boolean(e.metaKey || e.ctrlKey || e.shiftKey || e.altKey || e.button !== 0);
+}
+
+function getSsrElement() {
+  return document.getElementById('ssrContent');
+}
+
+function isSsrNotFoundActive() {
+  const el = getSsrElement();
+  return Boolean(el && el.getAttribute('data-ssr-status') === '404');
+}
+
+function clearSsrContent({ force = false } = {}) {
+  const el = getSsrElement();
+  if (!el) return;
+  if (!force && el.getAttribute('data-ssr-status') === '404') return;
+  el.remove();
+}
+
+function decodePathSegment(segment) {
+  try {
+    return decodeURIComponent(segment).trim();
+  } catch {
+    return segment.trim();
+  }
+}
+
+function normalizeCategoryName(rawCat) {
+  if (!rawCat) return '';
+  const trimmed = String(rawCat).trim();
+  if (LEGACY_CATEGORY_MAP[trimmed]) return LEGACY_CATEGORY_MAP[trimmed];
+  const lower = trimmed.toLowerCase();
+  for (const [legacy, mapped] of Object.entries(LEGACY_CATEGORY_MAP)) {
+    if (legacy.toLowerCase() === lower) return mapped;
+  }
+  const canonical = CATEGORY_ORDER.find((c) => c.toLowerCase() === lower);
+  return canonical || trimmed;
+}
+
 // URL state sync
 function loadStateFromUrl() {
+  state.tab = 'maps';
+  state.activePlayerName = '';
+  state.search = '';
+  state.category = '';
+  state.difficulty = '';
+  state.mapper = '';
+  state.sort = 'release-desc';
+  state.favOnly = false;
+  state.page = 1;
+  state.activeMapName = null;
+
+  const pathname = window.location.pathname || '/';
+  const ssr404 = isSsrNotFoundActive();
+
+  if (!ssr404 && pathname.startsWith('/map/')) {
+    const rest = pathname.slice(5).replace(/\/+$/, '');
+    if (rest) {
+      state.activeMapName = decodePathSegment(rest);
+    }
+  } else if (!ssr404 && pathname.startsWith('/category/')) {
+    const rest = pathname.slice(10).replace(/\/+$/, '');
+    if (rest) {
+      state.category = normalizeCategoryName(decodePathSegment(rest));
+    }
+  }
+
   const params = new URLSearchParams(window.location.search);
   const tab = params.get('tab');
   const player = params.get('player');
@@ -227,8 +296,8 @@ function loadStateFromUrl() {
   if (q) state.search = q;
 
   const rawCat = params.get('cat') ?? params.get('category') ?? '';
-  if (rawCat) {
-    state.category = LEGACY_CATEGORY_MAP[rawCat] || rawCat;
+  if (rawCat && !state.category) {
+    state.category = normalizeCategoryName(rawCat);
   }
 
   const rawDiff = params.get('star') ?? params.get('stars') ?? '';
@@ -251,17 +320,59 @@ function loadStateFromUrl() {
   if (Number.isInteger(page) && page >= 1) state.page = page;
 
   const mapParam = params.get('map');
-  if (mapParam) state.activeMapName = mapParam.trim();
+  if (mapParam && !state.activeMapName) state.activeMapName = mapParam.trim();
 }
 
-function syncUrl() {
+function updateDocumentMeta(nextPath) {
+  let nextTitle = DEFAULT_TITLE;
+  let canonicalPath = '/';
+
+  if (state.activeMapName) {
+    const found = state.maps.find((m) => m.name === state.activeMapName);
+    nextTitle = found
+      ? `${found.name} (${found.type}, ${found.difficulty}★) – DDNet Map | DDNet Archive`
+      : `${state.activeMapName} – DDNet Map | DDNet Archive`;
+    canonicalPath = `/map/${encodeURIComponent(state.activeMapName)}`;
+  } else if (state.tab === 'players' && state.activePlayerName) {
+    nextTitle = `${state.activePlayerName} – DDNet Player Stats | DDNet Archive`;
+    canonicalPath = '/';
+  } else if (state.tab === 'players') {
+    nextTitle = 'DDNet Player Stats & Rankings – DDNet Archive';
+    canonicalPath = '/';
+  } else if (state.category) {
+    const catCount = state.mapsLoaded
+      ? state.maps.filter((m) => m.type === state.category).length
+      : 0;
+    nextTitle = catCount
+      ? `${state.category} DDNet Maps (${catCount} Maps) – DDNet Archive`
+      : `${state.category} DDNet Maps – DDNet Archive`;
+    canonicalPath = `/category/${encodeURIComponent(state.category)}`;
+  } else if (nextPath === '/') {
+    canonicalPath = '/';
+  }
+
+  document.title = nextTitle;
+  const canonicalEl = document.querySelector('link[rel="canonical"]');
+  if (canonicalEl) {
+    canonicalEl.setAttribute('href', `${SITE_ORIGIN}${canonicalPath}`);
+  }
+}
+
+function syncUrl({ push = false } = {}) {
+  if (isSsrNotFoundActive()) return;
+
+  let nextPath = '/';
   const params = new URLSearchParams();
-  if (state.tab === 'players') {
+
+  if (state.activeMapName) {
+    nextPath = `/map/${encodeURIComponent(state.activeMapName)}`;
+  } else if (state.tab === 'players') {
+    nextPath = '/';
     params.set('tab', 'players');
     if (state.activePlayerName) params.set('player', state.activePlayerName);
   } else {
+    nextPath = state.category ? `/category/${encodeURIComponent(state.category)}` : '/';
     if (state.search.trim()) params.set('q', state.search.trim());
-    if (state.category) params.set('cat', state.category);
     if (state.difficulty !== '') params.set('star', state.difficulty);
     if (state.mapper) params.set('mapper', state.mapper);
     if (state.sort !== 'release-desc') params.set('sort', state.sort);
@@ -269,12 +380,19 @@ function syncUrl() {
     if (state.favOnly) params.set('fav', '1');
     if (state.page > 1) params.set('page', String(state.page));
   }
-  if (state.activeMapName) {
-    params.set('map', state.activeMapName);
-  }
+
   const qs = params.toString();
-  const nextUrl = qs ? `${window.location.pathname}?${qs}` : window.location.pathname;
-  history.replaceState(null, '', nextUrl);
+  const nextUrl = qs ? `${nextPath}?${qs}` : nextPath;
+  const currentUrl = `${window.location.pathname}${window.location.search}`;
+
+  if (nextUrl !== currentUrl) {
+    if (push) {
+      history.pushState(null, '', nextUrl);
+    } else {
+      history.replaceState(null, '', nextUrl);
+    }
+  }
+  updateDocumentMeta(nextPath);
 }
 
 // Theme & Language
@@ -378,18 +496,19 @@ function renderCategoryStrip() {
   const strip = $('categoryStrip');
   if (!strip) return;
   const cats = getOrderedCategories(state.maps);
-  let html = `<button type="button" class="cat-pill${!state.category ? ' active' : ''}" data-cat-filter="">
+  let html = `<a href="/" class="cat-pill${!state.category ? ' active' : ''}" data-cat-filter="">
     <span>${escapeHtml(tr('allCategories'))}</span>
     <span class="cat-count">${state.maps.length}</span>
-  </button>`;
+  </a>`;
 
   for (const { name, count } of cats) {
     const active = state.category === name ? ' active' : '';
-    html += `<button type="button" class="cat-pill${active}" data-cat-filter="${escapeAttr(name)}" data-cat="${escapeAttr(name)}">
+    const href = `/category/${encodeURIComponent(name)}`;
+    html += `<a href="${escapeAttr(href)}" class="cat-pill${active}" data-cat-filter="${escapeAttr(name)}" data-cat="${escapeAttr(name)}">
       <span class="cat-dot" aria-hidden="true"></span>
       <span>${escapeHtml(name)}</span>
       <span class="cat-count">${count}</span>
-    </button>`;
+    </a>`;
   }
   strip.innerHTML = html;
 }
@@ -510,7 +629,8 @@ function renderMetaBar() {
   active.innerHTML = tags.join('');
 }
 
-function renderMapsContent() {
+function renderMapsContent({ pushUrl = false } = {}) {
+  clearSsrContent();
   const total = state.filteredMaps.length;
   const totalPages = Math.max(1, Math.ceil(total / state.pageSize));
   if (state.page > totalPages) state.page = totalPages;
@@ -540,7 +660,7 @@ function renderMapsContent() {
     $('mapsTableWrap').classList.add('hidden');
     $('mapsGrid').classList.add('hidden');
     $('paginationBar').classList.add('hidden');
-    syncUrl();
+    syncUrl({ push: pushUrl });
     return;
   }
 
@@ -564,7 +684,7 @@ function renderMapsContent() {
   $('nextPageBtn').disabled = state.page >= totalPages;
   $('pageSizeSelect').value = String(state.pageSize);
 
-  syncUrl();
+  syncUrl({ push: pushUrl });
 }
 
 function renderMapsTable(maps) {
@@ -587,7 +707,7 @@ function renderMapsTable(maps) {
           ${thumbHtml}
           <div class="map-cell-text">
             <div class="map-cell-title">
-              <button type="button" class="map-name-btn" data-open-map="${escapeAttr(m.name)}">${escapeHtml(m.name)}</button>
+              <a href="/map/${encodeURIComponent(m.name)}" class="map-name-btn" data-open-map="${escapeAttr(m.name)}">${escapeHtml(m.name)}</a>
               ${recent ? `<span class="new-tag">${escapeHtml(tr('newBadge'))}</span>` : ''}
             </div>
             ${m.mapper ? `<div class="map-mobile-sub">${escapeHtml(m.mapper)}</div>` : ''}
@@ -632,7 +752,7 @@ function renderMapsGrid(maps) {
       </div>
       <div class="card-body">
         <div class="card-title-row">
-          <button type="button" class="card-title" data-open-map="${escapeAttr(m.name)}">${escapeHtml(m.name)}</button>
+          <a href="/map/${encodeURIComponent(m.name)}" class="card-title" data-open-map="${escapeAttr(m.name)}">${escapeHtml(m.name)}</a>
           ${renderCategoryBadge(m.type)}
         </div>
         <div class="card-mapper">
@@ -679,7 +799,7 @@ async function loadMapCatalog({ forceRefresh = false } = {}) {
     if (state.activeMapName && !$('mapModal').classList.contains('hidden')) {
       // Already open
     } else if (state.activeMapName) {
-      openMapModal(state.activeMapName);
+      openMapModal(state.activeMapName, { push: false });
     }
   } catch {
     $('mapsSkeleton').classList.add('hidden');
@@ -760,7 +880,8 @@ function syncBodyScrollLock() {
 }
 
 // Map Detail Modal
-function openMapModal(mapName) {
+function openMapModal(mapName, { push = true } = {}) {
+  clearSsrContent({ force: true });
   const baseMap =
     state.maps.find((m) => m.name === mapName) ||
     state.maps.find((m) => m.name.toLowerCase() === mapName.toLowerCase()) || {
@@ -790,7 +911,7 @@ function openMapModal(mapName) {
   $('mapModal').classList.remove('hidden');
   $('mapModalBody').scrollTop = 0;
   syncBodyScrollLock();
-  syncUrl();
+  syncUrl({ push });
 
   fetchMapDetail(baseMap.name)
     .then((detail) => {
@@ -806,14 +927,14 @@ function openMapModal(mapName) {
     });
 }
 
-function closeMapModal() {
+function closeMapModal({ push = true } = {}) {
   $('mapModal').classList.add('hidden');
   state.activeMapName = null;
   state.activeMapDetail = null;
   state.mapDetailError = false;
   state.mapDetailReqId += 1;
   syncBodyScrollLock();
-  syncUrl();
+  syncUrl({ push });
 }
 
 function renderMapModalShell(base) {
@@ -1075,7 +1196,7 @@ function renderLiveModal() {
             (m, i) => `<div class="list-row">
             <div class="list-row-left">
               <span class="rank-num${i < 3 ? ' top3' : ''}">${i + 1}.</span>
-              <button type="button" class="map-name-btn" data-live-open-map="${escapeAttr(m.name)}">${escapeHtml(m.name)}</button>
+              <a href="/map/${encodeURIComponent(m.name)}" class="map-name-btn" data-live-open-map="${escapeAttr(m.name)}">${escapeHtml(m.name)}</a>
             </div>
             <div class="list-row-right tabular">
               <span>${escapeHtml(tr('liveServersCount', { n: m.servers }))}</span>
@@ -1304,7 +1425,7 @@ function renderPlayerView() {
                       const mapName = f.map || '?';
                       return `<div class="list-row">
                         <div class="list-row-left">
-                          <button type="button" class="map-name-btn" data-open-map="${escapeAttr(mapName)}">${escapeHtml(mapName)}</button>
+                          <a href="/map/${encodeURIComponent(mapName)}" class="map-name-btn" data-open-map="${escapeAttr(mapName)}">${escapeHtml(mapName)}</a>
                           ${f.type ? renderCategoryBadge(f.type) : ''}
                         </div>
                         <div class="list-row-right">
@@ -1420,7 +1541,9 @@ function bindEvents() {
   );
 
   $('brandLink').addEventListener('click', (e) => {
+    if (isModifiedClick(e)) return;
     e.preventDefault();
+    clearSsrContent({ force: true });
     state.search = '';
     state.category = '';
     state.difficulty = '';
@@ -1431,13 +1554,22 @@ function bindEvents() {
     $('mapSearch').value = '';
     $('difficultySelect').value = '';
     $('sortSelect').value = 'release-desc';
+    if (!$('mapModal').classList.contains('hidden')) {
+      closeMapModal({ push: false });
+    }
     switchTab('maps');
     applyMapFilters();
-    renderMapsContent();
+    renderMapsContent({ pushUrl: true });
   });
 
-  $('navMaps').addEventListener('click', () => switchTab('maps'));
-  $('navPlayers').addEventListener('click', () => switchTab('players'));
+  $('navMaps').addEventListener('click', () => {
+    clearSsrContent({ force: true });
+    switchTab('maps');
+  });
+  $('navPlayers').addEventListener('click', () => {
+    clearSsrContent({ force: true });
+    switchTab('players');
+  });
 
   $('langBtn').addEventListener('click', () => {
     state.lang = state.lang === 'tr' ? 'en' : 'tr';
@@ -1480,6 +1612,7 @@ function bindEvents() {
 
   // Map search & autocomplete
   $('mapSearch').addEventListener('input', (e) => {
+    clearSsrContent({ force: true });
     state.search = e.target.value;
     state.page = 1;
     updateMapAutocomplete();
@@ -1694,10 +1827,13 @@ function bindEvents() {
 
     const catBtn = target.closest('[data-cat-filter]');
     if (catBtn) {
+      if (catBtn.tagName === 'A' && isModifiedClick(e)) return;
+      e.preventDefault();
+      clearSsrContent({ force: true });
       state.category = catBtn.getAttribute('data-cat-filter') || '';
       state.page = 1;
       applyMapFilters();
-      renderMapsContent();
+      renderMapsContent({ pushUrl: true });
       return;
     }
 
@@ -1754,12 +1890,16 @@ function bindEvents() {
 
     const openMapEl = target.closest('[data-open-map]');
     if (openMapEl) {
+      if (openMapEl.tagName === 'A' && isModifiedClick(e)) return;
+      e.preventDefault();
       openMapModal(openMapEl.getAttribute('data-open-map'));
       return;
     }
 
     const liveMapEl = target.closest('[data-live-open-map]');
     if (liveMapEl) {
+      if (liveMapEl.tagName === 'A' && isModifiedClick(e)) return;
+      e.preventDefault();
       const targetName = liveMapEl.getAttribute('data-live-open-map');
       openMapModal(targetName);
       closeLiveModal();
@@ -1869,6 +2009,37 @@ function bindEvents() {
     ) {
       e.preventDefault();
       openRandomMap();
+    }
+  });
+
+  // Sync UI on browser Back/Forward navigation
+  window.addEventListener('popstate', () => {
+    clearSsrContent({ force: true });
+    loadStateFromUrl();
+    $('mapSearch').value = state.search;
+    $('difficultySelect').value = state.difficulty;
+    $('sortSelect').value = state.sort;
+    $('navMaps').classList.toggle('active', state.tab === 'maps');
+    $('navPlayers').classList.toggle('active', state.tab === 'players');
+    $('mapsView').classList.toggle('hidden', state.tab !== 'maps');
+    $('playersView').classList.toggle('hidden', state.tab !== 'players');
+
+    if (state.mapsLoaded) {
+      applyMapFilters();
+      renderMapsContent({ pushUrl: false });
+    }
+
+    if (state.activeMapName) {
+      openMapModal(state.activeMapName, { push: false });
+    } else if (!$('mapModal').classList.contains('hidden')) {
+      closeMapModal({ push: false });
+    }
+
+    if (state.tab === 'players') {
+      renderPlayerView();
+      if (state.activePlayerName && state.activePlayerData?.player !== state.activePlayerName) {
+        openPlayerProfile(state.activePlayerName);
+      }
     }
   });
 }
