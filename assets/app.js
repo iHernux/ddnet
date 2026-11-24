@@ -1,4 +1,4 @@
-import { icons } from './icons.js?v=20261124a';
+import { icons } from './icons.js?v=20261124b';
 import {
   detectInitialLang,
   escapeAttr,
@@ -11,7 +11,7 @@ import {
   isRecentRelease,
   parseReleaseMs,
   t,
-} from './i18n.js?v=20261124a';
+} from './i18n.js?v=20261124b';
 import {
   fetchMapDetail,
   fetchMaps,
@@ -19,7 +19,13 @@ import {
   fetchPlayerProfile,
   fetchPlayerSuggestions,
   fetchServers,
-} from './api.js?v=20261124a';
+} from './api.js?v=20261124b';
+import {
+  TILES_LIST,
+  POPULAR_TILE_IDS,
+  getTileInfo,
+  normalizeTileId,
+} from './tiles.js?v=20261124b';
 
 const CATEGORY_ORDER = [
   'Novice',
@@ -93,11 +99,15 @@ const state = {
   search: '',
   category: '',
   difficulty: '',
+  tile: '',
   mapper: '',
   sort: 'release-desc',
   favOnly: false,
+  mapsFiltersOpen: false,
 
   maps: [],
+  officialMapsByLower: new Map(),
+  tileCounts: new Map(),
   combinedMaps: [],
   mapsLoaded: false,
   mapsFetchedAt: null,
@@ -114,6 +124,7 @@ const state = {
   serversLoaded: false,
   serversLoading: false,
   serversError: false,
+  serversFiltersOpen: false,
   serverCommunity: '',
   serverMode: '',
   serverRegion: '',
@@ -135,6 +146,7 @@ const state = {
   activeMapName: null,
   activeMapDetail: null,
   activeMapTab: 'ranks',
+  selectedModalTile: null,
   mapDetailError: false,
   mapDetailReqId: 0,
 
@@ -362,6 +374,7 @@ function loadStateFromUrl() {
   state.search = '';
   state.category = '';
   state.difficulty = '';
+  state.tile = '';
   state.mapper = '';
   state.sort = 'release-desc';
   state.favOnly = false;
@@ -423,6 +436,11 @@ function loadStateFromUrl() {
     state.difficulty = rawDiff;
   }
 
+  const rawTile = params.get('tile') ?? '';
+  if (rawTile) {
+    state.tile = normalizeTileId(rawTile);
+  }
+
   const mapper = params.get('mapper') ?? '';
   if (mapper) state.mapper = mapper;
 
@@ -479,6 +497,10 @@ function updateDocumentMeta(nextPath) {
     canonicalPath = CATEGORY_ORDER.includes(state.category)
       ? `/category/${encodeURIComponent(state.category)}`
       : '/';
+  } else if (state.tile) {
+    const tInfo = getTileInfo(state.tile, state.lang);
+    nextTitle = `${tInfo.name} DDNet Maps – DDNet Archive`;
+    canonicalPath = '/';
   } else if (nextPath === '/') {
     canonicalPath = '/';
   }
@@ -518,6 +540,7 @@ function syncUrl({ push = false } = {}) {
     }
     if (state.search.trim()) params.set('q', state.search.trim());
     if (state.difficulty !== '') params.set('star', state.difficulty);
+    if (state.tile) params.set('tile', state.tile);
     if (state.mapper) params.set('mapper', state.mapper);
     if (state.sort !== 'release-desc') params.set('sort', state.sort);
     if (state.viewMode !== 'grid') params.set('view', state.viewMode);
@@ -583,6 +606,7 @@ function applyTranslations() {
   });
 
   renderLiveStatusPill();
+  if (state.mapsLoaded) populateTileFilterOptions();
 }
 
 function hydrateStaticIcons() {
@@ -590,6 +614,7 @@ function hydrateStaticIcons() {
   $('githubBtn').innerHTML = icons.github(16);
   $('mapSearchIcon').innerHTML = icons.search(15);
   $('mapSearchClear').innerHTML = icons.x(14);
+  $('mapsFiltersBtnIcon').innerHTML = icons.sliders(15);
   $('favBtnIcon').innerHTML = icons.star(15);
   $('randomBtnIcon').innerHTML = icons.shuffle(15);
   $('viewTableBtn').innerHTML = icons.list(15);
@@ -598,12 +623,13 @@ function hydrateStaticIcons() {
   $('nextPageBtn').innerHTML = icons.chevronRight(16);
   $('serverSearchIcon').innerHTML = icons.search(15);
   $('serverSearchClear').innerHTML = icons.x(14);
-  $('serverWeeklyIcon').innerHTML = icons.flame(14);
+  $('serversFiltersBtnIcon').innerHTML = icons.sliders(15);
   $('serverRefreshBtn').innerHTML = icons.refresh(15);
   $('playerSearchIcon').innerHTML = icons.search(15);
   $('playerSearchClear').innerHTML = icons.x(14);
   $('mapModalClose').innerHTML = icons.x(16);
   $('liveModalClose').innerHTML = icons.x(16);
+  $('imageLightboxClose').innerHTML = icons.x(18);
 }
 
 // Rendering helpers
@@ -776,6 +802,56 @@ function getCombinedMaps() {
   return combined;
 }
 
+function buildOfficialIndex(maps) {
+  const byLower = new Map();
+  const counts = new Map();
+  for (const m of maps) {
+    if (m.name) byLower.set(m.name.toLowerCase(), m);
+    if (Array.isArray(m.tiles)) {
+      for (const tid of m.tiles) {
+        counts.set(tid, (counts.get(tid) || 0) + 1);
+      }
+    }
+  }
+  state.officialMapsByLower = byLower;
+  state.tileCounts = counts;
+  populateTileFilterOptions();
+}
+
+function populateTileFilterOptions() {
+  const select = $('tileSelect');
+  const quickRow = $('quickTilesRow');
+  const orderedIds = [...TILES_LIST.map((x) => x.id)];
+  for (const k of state.tileCounts.keys()) {
+    if (!orderedIds.includes(k)) orderedIds.push(k);
+  }
+
+  if (select) {
+    let html = `<option value="">${escapeHtml(tr('allTiles'))}</option>`;
+    for (const id of orderedIds) {
+      const cnt = state.tileCounts.get(id) || 0;
+      if (cnt === 0 && state.mapsLoaded) continue;
+      const info = getTileInfo(id, state.lang);
+      html += `<option value="${escapeAttr(id)}">${escapeHtml(info.name)}${cnt > 0 ? ` (${cnt})` : ''}</option>`;
+    }
+    select.innerHTML = html;
+    select.value = state.tile;
+  }
+
+  if (quickRow) {
+    quickRow.innerHTML = POPULAR_TILE_IDS.filter((id) => !state.mapsLoaded || (state.tileCounts.get(id) || 0) > 0)
+      .map((id) => {
+        const info = getTileInfo(id, state.lang);
+        const active = state.tile === id ? ' active' : '';
+        return `<button type="button" class="quick-tile-pill${active}" data-quick-tile="${escapeAttr(id)}">
+          <img src="${escapeAttr(info.iconUrl)}" alt="" width="16" height="16" loading="lazy" />
+          <span>${escapeHtml(info.name)}</span>
+        </button>`;
+      })
+      .join('');
+  }
+}
+
 function renderCategoryStrip() {
   const strip = $('categoryStrip');
   if (!strip) return;
@@ -786,7 +862,12 @@ function renderCategoryStrip() {
     <span class="cat-count">${pool.length}</span>
   </a>`;
 
+  let dividerInserted = false;
   for (const { name, count } of cats) {
+    if (!dividerInserted && LIVE_CATEGORIES.includes(name)) {
+      dividerInserted = true;
+      html += '<span class="strip-divider" aria-hidden="true"></span>';
+    }
     const active = state.category === name ? ' active' : '';
     const href = CATEGORY_ORDER.includes(name)
       ? `/category/${encodeURIComponent(name)}`
@@ -808,12 +889,16 @@ function applyMapFilters() {
   const mapperFilter = state.mapper.trim().toLowerCase();
   const cat = state.category;
   const diff = state.difficulty === '' ? null : Number(state.difficulty);
+  const tileFilter = state.tile;
   const favOnly = state.favOnly;
 
   const filtered = allMaps.filter((m) => {
     if (favOnly && !isMapFavorited(m.name)) return false;
     if (cat && m.type !== cat) return false;
     if (diff !== null && (m.difficulty === null || m.difficulty === undefined || m.difficulty !== diff)) {
+      return false;
+    }
+    if (tileFilter && !(Array.isArray(m.tiles) && m.tiles.includes(tileFilter))) {
       return false;
     }
     if (mapperFilter && !(m.mapper || '').toLowerCase().includes(mapperFilter)) return false;
@@ -918,6 +1003,14 @@ function renderMetaBar() {
       )} ${icons.x(12)}</button>`
     );
   }
+  if (state.tile) {
+    const tInfo = getTileInfo(state.tile, state.lang);
+    tags.push(
+      `<button type="button" class="filter-tag" data-clear-filter="tile"><img class="filter-tag-icon" src="${escapeAttr(tInfo.iconUrl)}" alt="" width="14" height="14" /><span>${escapeHtml(
+        tr('filterTileLabel', { tile: tInfo.name })
+      )}</span> ${icons.x(12)}</button>`
+    );
+  }
   if (state.mapper) {
     tags.push(
       `<button type="button" class="filter-tag" data-clear-filter="mapper">${escapeHtml(
@@ -958,6 +1051,20 @@ function renderMapsContent({ pushUrl = false } = {}) {
   $('viewTableBtn').classList.toggle('active', state.viewMode === 'table');
   $('viewGridBtn').classList.toggle('active', state.viewMode === 'grid');
 
+  const drawerCount =
+    (state.difficulty !== '' ? 1 : 0) +
+    (state.tile ? 1 : 0) +
+    (state.sort !== 'release-desc' ? 1 : 0);
+  $('mapsFilterCountBadge').textContent = String(drawerCount);
+  $('mapsFilterCountBadge').classList.toggle('hidden', drawerCount === 0);
+  $('mapsFiltersToggleBtn').classList.toggle('active', state.mapsFiltersOpen || drawerCount > 0);
+  $('mapsFiltersToggleBtn').setAttribute('aria-expanded', String(state.mapsFiltersOpen));
+  $('mapsFilterDrawer').classList.toggle('hidden', !state.mapsFiltersOpen);
+  $('tileSelect').value = state.tile;
+  $('quickTilesRow')
+    ?.querySelectorAll('[data-quick-tile]')
+    .forEach((b) => b.classList.toggle('active', b.getAttribute('data-quick-tile') === state.tile));
+
   const searchWrap = $('mapSearch').closest('.search-wrap');
   searchWrap.classList.toggle('has-value', Boolean(state.search));
   $('mapSearchClear').classList.toggle('hidden', !state.search);
@@ -973,7 +1080,7 @@ function renderMapsContent({ pushUrl = false } = {}) {
     const hintEl = emptyBox.querySelector('.state-hint');
     if (hintEl) {
       const hasOtherFilters = Boolean(
-        state.category || state.difficulty !== '' || state.search.trim() || state.mapper
+        state.category || state.difficulty !== '' || state.tile || state.search.trim() || state.mapper
       );
       hintEl.textContent =
         state.favOnly && state.mapFavs.size > 0 && hasOtherFilters
@@ -1165,8 +1272,13 @@ async function loadMapCatalog({ forceRefresh = false } = {}) {
     state.mapsFetchedAt = result.lastModified || result.fetchedAt || null;
     state.mapsStale = Boolean(result.fromStaleCache);
 
+    buildOfficialIndex(state.maps);
     applyMapFilters();
     renderMapsContent();
+
+    if (state.serversLoaded && state.tab === 'servers') {
+      renderServersView({ pushUrl: false });
+    }
 
     if (state.activeMapName && $('mapModal').classList.contains('hidden')) {
       openMapModal(state.activeMapName, { push: false });
@@ -1234,7 +1346,9 @@ let isBodyLocked = false;
 
 function syncBodyScrollLock() {
   const anyOpen =
-    !$('mapModal').classList.contains('hidden') || !$('liveModal').classList.contains('hidden');
+    !$('mapModal').classList.contains('hidden') ||
+    !$('liveModal').classList.contains('hidden') ||
+    !$('imageLightbox').classList.contains('hidden');
   if (anyOpen && !isBodyLocked) {
     lockedScrollY = window.scrollY || document.documentElement.scrollTop || 0;
     isBodyLocked = true;
@@ -1308,6 +1422,7 @@ function openMapModal(mapName, { push = true } = {}) {
   state.activeMapName = baseMap.name;
   state.activeMapDetail = null;
   state.activeMapTab = 'ranks';
+  state.selectedModalTile = null;
   state.mapDetailError = false;
   const reqId = ++state.mapDetailReqId;
 
@@ -1411,7 +1526,10 @@ function renderMapModalShell(base, detail = null) {
   body.innerHTML = `
     ${
       thumbnail
-        ? `<div class="modal-hero"><img id="mapModalHeroImg" src="${escapeAttr(thumbnail)}" alt="${escapeAttr(mapName)}" /></div>`
+        ? `<div class="modal-hero modal-hero-zoom" role="button" tabindex="0" data-zoom-image="${escapeAttr(thumbnail)}" data-zoom-alt="${escapeAttr(mapName)}" title="${escapeAttr(tr('mapImageZoomHint'))}">
+            <img id="mapModalHeroImg" src="${escapeAttr(thumbnail)}" alt="${escapeAttr(mapName)}" />
+            <span class="modal-hero-zoom-badge">${icons.maximize(13)}<span>${escapeHtml(tr('mapImageZoomHint'))}</span></span>
+          </div>`
         : ''
     }
     <div class="modal-meta-row">${metaHtml}</div>
@@ -1558,20 +1676,7 @@ function updateMapModalDynamicSections(base, detail, isLoading, hasError) {
   }
 
   if (tilesEl) {
-    tilesEl.innerHTML =
-      tiles.length > 0
-        ? `<div>
-            <div class="section-heading">${escapeHtml(tr('mapDetailTilesTitle'))}</div>
-            <div class="tiles-strip">
-              ${tiles
-                .map(
-                  (tile) =>
-                    `<span class="tile-chip" title="${escapeAttr(tile)}"><img src="https://ddnet.org/tiles/${encodeURIComponent(tile)}.png" alt="${escapeAttr(tile)}" loading="lazy" /></span>`
-                )
-                .join('')}
-            </div>
-          </div>`
-        : '';
+    tilesEl.innerHTML = renderMapTilesSection(tiles);
   }
 
   if (recordsEl) {
@@ -1604,6 +1709,72 @@ function updateMapModalDynamicSections(base, detail, isLoading, hasError) {
       liveServersEl.innerHTML = '';
     }
   }
+}
+
+function openImageLightbox(src, alt = '') {
+  const safeSrc = safeHttpUrl(src);
+  if (!safeSrc) return;
+  const img = $('imageLightboxImg');
+  img.src = safeSrc;
+  img.alt = alt;
+  $('imageLightbox').classList.remove('hidden');
+  syncBodyScrollLock();
+}
+
+function closeImageLightbox() {
+  $('imageLightbox').classList.add('hidden');
+  $('imageLightboxImg').src = '';
+  syncBodyScrollLock();
+}
+
+function renderMapTilesSection(tiles) {
+  if (!Array.isArray(tiles) || tiles.length === 0) return '';
+  const selected = state.selectedModalTile && tiles.includes(state.selectedModalTile)
+    ? state.selectedModalTile
+    : null;
+  const selInfo = selected ? getTileInfo(selected, state.lang) : null;
+  const selCount = selected ? state.tileCounts.get(selected) || 0 : 0;
+
+  return `<div>
+    <div class="section-heading">${escapeHtml(tr('mapDetailTilesTitle'))}</div>
+    <div class="tiles-strip">
+      ${tiles
+        .map((tile) => {
+          const info = getTileInfo(tile, state.lang);
+          const active = selected === tile;
+          return `<button type="button" class="tile-chip${active ? ' active' : ''}" data-inspect-tile="${escapeAttr(tile)}" title="${escapeAttr(info.name)}" aria-label="${escapeAttr(info.name)}" aria-pressed="${active ? 'true' : 'false'}">
+            <img src="${escapeAttr(info.iconUrl)}" alt="${escapeAttr(info.name)}" loading="lazy" />
+          </button>`;
+        })
+        .join('')}
+    </div>
+    <div id="mapTileDetailBox">
+      ${
+        selInfo
+          ? `<div class="tile-detail-card">
+              <div class="tile-detail-head">
+                <img src="${escapeAttr(selInfo.iconUrl)}" alt="" width="28" height="28" />
+                <div class="tile-detail-titles">
+                  <strong>${escapeHtml(selInfo.name)}</strong>
+                  <code class="tile-code">${escapeHtml(selInfo.id)}</code>
+                </div>
+                <button type="button" class="row-icon-btn" data-inspect-tile="${escapeAttr(selInfo.id)}" aria-label="${escapeAttr(tr('closeLabel'))}">${icons.x(14)}</button>
+              </div>
+              ${selInfo.desc ? `<p class="tile-detail-desc">${escapeHtml(selInfo.desc)}</p>` : ''}
+              <div class="tile-detail-actions">
+                <button type="button" class="btn btn-primary btn-sm" data-filter-tile="${escapeAttr(selInfo.id)}">
+                  ${escapeHtml(tr('tileShowMapsBtn', { n: selCount.toLocaleString() }))}
+                </button>
+                <a class="btn btn-sm" href="https://ddnet.org/tiles/${encodeURIComponent(selInfo.id)}/" target="_blank" rel="noopener noreferrer">
+                  ${icons.externalLink(13)}
+                  <span>${escapeHtml(tr('tileOpenDdnetBtn'))}</span>
+                </a>
+              </div>
+            </div>`
+          : `<div class="tile-hint-text">${escapeHtml(tr('tileHintPrompt'))}</div>`
+      }
+    </div>
+  </div>`;
 }
 
 function renderMapRecordsTab(detail, tab) {
@@ -1870,78 +2041,28 @@ function populateServerModeOptions() {
 
 function renderCommunityStrip() {
   const strip = $('communityStrip');
-  const infoBar = $('communityInfoBar');
   if (!strip || !state.serversData) return;
 
   const d = state.serversData;
   const communities = Array.isArray(d.communities) ? d.communities : [];
 
-  let html = `<button type="button" class="community-card${!state.serverCommunity ? ' active' : ''}" data-server-comm="">
-    <div class="community-card-top">
-      ${icons.globe(15)}
-      <span class="community-card-name">${escapeHtml(tr('serversAllCommunities'))}</span>
-    </div>
-    <div class="community-card-meta tabular">${d.totalPlayers.toLocaleString()} ${escapeHtml(tr('liveWord'))} · ${d.totalServers.toLocaleString()}</div>
+  let html = `<button type="button" class="cat-pill${!state.serverCommunity ? ' active' : ''}" data-server-comm="">
+    ${icons.globe(13)}
+    <span>${escapeHtml(tr('serversAllCommunities'))}</span>
+    <span class="cat-count">${d.totalPlayers.toLocaleString()}</span>
   </button>`;
 
   for (const c of communities) {
     const active = state.serverCommunity === c.id ? ' active' : '';
     const icon = safeHttpUrl(c.icon);
-    const label = c.id === 'other' ? tr('serversOtherCommunity') : c.name;
-    html += `<button type="button" class="community-card${active}" data-server-comm="${escapeAttr(c.id)}">
-      <div class="community-card-top">
-        ${icon ? `<img src="${escapeAttr(icon)}" alt="" width="16" height="16" loading="lazy" />` : icons.server(15)}
-        <span class="community-card-name">${escapeHtml(label)}</span>
-      </div>
-      <div class="community-card-meta tabular">${c.players.toLocaleString()} ${escapeHtml(tr('liveWord'))} · ${c.activeServers}/${c.servers}</div>
+    const label = c.id === 'other' ? tr('serversOtherCommunity') : c.shortName || c.name;
+    html += `<button type="button" class="cat-pill${active}" data-server-comm="${escapeAttr(c.id)}">
+      ${icon ? `<img src="${escapeAttr(icon)}" alt="" width="14" height="14" loading="lazy" />` : icons.server(13)}
+      <span>${escapeHtml(label)}</span>
+      <span class="cat-count">${c.players.toLocaleString()}</span>
     </button>`;
   }
   strip.innerHTML = html;
-
-  if (infoBar) {
-    const selected = state.serverCommunity
-      ? communities.find((c) => c.id === state.serverCommunity)
-      : null;
-    if (selected && selected.id !== 'other') {
-      const icon = safeHttpUrl(selected.icon);
-      const links = (Array.isArray(selected.contactUrls) ? selected.contactUrls : [])
-        .map(safeHttpUrl)
-        .filter(Boolean)
-        .slice(0, 3);
-      const modesText = Array.isArray(selected.topGameTypes) ? selected.topGameTypes.join(' · ') : '';
-
-      infoBar.innerHTML = `
-        <div class="community-info-left">
-          ${icon ? `<img src="${escapeAttr(icon)}" alt="" width="20" height="20" />` : ''}
-          <div>
-            <strong>${escapeHtml(selected.name)}</strong>
-            ${modesText ? `<span class="muted"> · ${escapeHtml(modesText)}</span>` : ''}
-          </div>
-        </div>
-        ${
-          links.length > 0
-            ? `<div class="community-info-links">
-                ${links
-                  .map((u) => {
-                    let host = u;
-                    try {
-                      host = new URL(u).hostname.replace(/^www\./, '');
-                    } catch {
-                      // keep full
-                    }
-                    return `<a class="btn btn-sm" href="${escapeAttr(u)}" target="_blank" rel="noopener noreferrer">${icons.externalLink(13)}<span>${escapeHtml(host)}</span></a>`;
-                  })
-                  .join('')}
-              </div>`
-            : ''
-        }
-      `;
-      infoBar.classList.remove('hidden');
-    } else {
-      infoBar.classList.add('hidden');
-      infoBar.innerHTML = '';
-    }
-  }
 }
 
 function getFilteredServers() {
@@ -1985,17 +2106,42 @@ function renderServersMeta(filtered) {
   const active = $('serversActiveFilters');
   if (!meta || !active) return;
 
+  const metaParts = [];
   if (state.serverWeeklyMode) {
-    meta.innerHTML = `<span><strong>${escapeHtml(tr('serversWeeklyTitle'))}</strong> · ${escapeHtml(tr('serversWeeklyHint'))}</span>`;
+    metaParts.push(
+      `<span><strong>${escapeHtml(tr('serversWeeklyTitle'))}</strong> · ${escapeHtml(tr('serversWeeklyHint'))}</span>`
+    );
   } else {
     const shownPlayers = filtered.reduce((acc, s) => acc + (s.players || 0), 0);
-    meta.innerHTML = `<span class="tabular">${escapeHtml(
-      tr('serversSummary', {
-        shown: filtered.length.toLocaleString(),
-        players: shownPlayers.toLocaleString(),
-      })
-    )}</span>`;
+    metaParts.push(
+      `<span class="tabular">${escapeHtml(
+        tr('serversSummary', {
+          shown: filtered.length.toLocaleString(),
+          players: shownPlayers.toLocaleString(),
+        })
+      )}</span>`
+    );
   }
+
+  if (state.serverCommunity && state.serverCommunity !== 'other' && state.serversData?.communities) {
+    const selected = state.serversData.communities.find((c) => c.id === state.serverCommunity);
+    const links = (Array.isArray(selected?.contactUrls) ? selected.contactUrls : [])
+      .map(safeHttpUrl)
+      .filter(Boolean)
+      .slice(0, 2);
+    for (const u of links) {
+      let host = u;
+      try {
+        host = new URL(u).hostname.replace(/^www\./, '');
+      } catch {
+        // keep full
+      }
+      metaParts.push(
+        `<a class="meta-ext-link" href="${escapeAttr(u)}" target="_blank" rel="noopener noreferrer">${icons.externalLink(11)}<span>${escapeHtml(host)}</span></a>`
+      );
+    }
+  }
+  meta.innerHTML = metaParts.join('');
 
   const tags = [];
   if (state.serverSearch.trim()) {
@@ -2039,8 +2185,31 @@ function renderServerCard(s, index = null) {
   const connectUrl = safeConnectTarget(s.address);
   const pct = s.maxPlayers > 0 ? Math.min(100, Math.round((s.players / s.maxPlayers) * 100)) : 0;
 
+  const officialMap = s.mapName ? state.officialMapsByLower.get(s.mapName.toLowerCase()) : null;
+  const commInfo = getCommunityInfo(s.community);
+  const commIcon = safeHttpUrl(commInfo?.icon);
+  const commLabel = s.community === 'other' ? tr('serversOtherCommunity') : commInfo?.shortName || s.communityName;
+  const showModePill = Boolean(
+    s.gameType &&
+      s.gameType.toLowerCase() !== 'ddracenetwork' &&
+      s.gameType.toLowerCase() !== String(commLabel || '').toLowerCase()
+  );
+
+  const thumbHtml =
+    s.mapName && officialMap?.thumbnail
+      ? `<a href="/map/${encodeURIComponent(s.mapName)}" class="server-thumb" data-open-map="${escapeAttr(s.mapName)}" title="${escapeAttr(s.mapName)}">
+          <img src="${escapeAttr(officialMap.thumbnail)}" alt="${escapeAttr(s.mapName)}" loading="lazy" decoding="async" />
+        </a>`
+      : s.mapName
+        ? `<a href="/map/${encodeURIComponent(s.mapName)}" class="server-thumb server-thumb-fallback" data-open-map="${escapeAttr(s.mapName)}" title="${escapeAttr(s.mapName)}">
+            ${commIcon ? `<img src="${escapeAttr(commIcon)}" alt="" loading="lazy" />` : icons.map(16)}
+            <span>${escapeHtml(s.gameType || commLabel || 'Map')}</span>
+          </a>`
+        : `<div class="server-thumb server-thumb-fallback">${icons.server(16)}</div>`;
+
   return `<article class="server-card">
     <div class="server-card-main">
+      ${thumbHtml}
       <div class="server-card-info">
         <div class="server-title-row">
           ${index !== null ? `<span class="rank-num${index < 3 ? ' top3' : ''}">${index + 1}.</span>` : ''}
@@ -2050,13 +2219,20 @@ function renderServerCard(s, index = null) {
           ${s.requiresLogin ? `<span class="flag-badge" title="${escapeAttr(tr('serversRequiresLogin'))}">${icons.shield(12)}</span>` : ''}
         </div>
         <div class="server-sub-row">
-          ${renderCommunityPill(s.community, s.community === 'other' ? tr('serversOtherCommunity') : s.communityName)}
-          ${s.gameType ? `<span class="mode-pill">${escapeHtml(s.gameType)}</span>` : ''}
           ${
             s.mapName
-              ? `<a href="/map/${encodeURIComponent(s.mapName)}" class="server-map-link" data-open-map="${escapeAttr(s.mapName)}">${icons.map(13)}<span>${escapeHtml(s.mapName)}</span></a>`
+              ? `<a href="/map/${encodeURIComponent(s.mapName)}" class="server-map-link" data-open-map="${escapeAttr(s.mapName)}">
+                  ${icons.map(12)}
+                  <span>${escapeHtml(s.mapName)}</span>
+                  ${officialMap ? `<span class="server-map-stars">${officialMap.difficulty}★</span>` : ''}
+                </a>`
               : ''
           }
+          <span class="server-sub-comm">
+            ${commIcon ? `<img src="${escapeAttr(commIcon)}" alt="" width="13" height="13" loading="lazy" />` : ''}
+            <span>${escapeHtml(commLabel)}</span>
+          </span>
+          ${showModePill ? `<span class="mode-pill">${escapeHtml(s.gameType)}</span>` : ''}
           ${
             state.serverWeeklyMode && typeof s.avgPlayers === 'number'
               ? `<span class="weekly-stat tabular">${escapeHtml(tr('serversAvgPeak', { avg: s.avgPlayers, peak: s.peakPlayers ?? 0 }))}</span>`
@@ -2122,8 +2298,18 @@ function renderServersView({ pushUrl = false } = {}) {
   $('serverActiveOnlyBtn').classList.toggle('active', state.serverActiveOnly && !state.serverWeeklyMode);
   $('serverActiveOnlyBtn').setAttribute('aria-pressed', String(state.serverActiveOnly));
   $('serverActiveOnlyBtn').disabled = state.serverWeeklyMode;
-  $('serverWeeklyBtn').classList.toggle('active', state.serverWeeklyMode);
-  $('serverWeeklyBtn').setAttribute('aria-pressed', String(state.serverWeeklyMode));
+  $('serverModeLiveBtn').classList.toggle('active', !state.serverWeeklyMode);
+  $('serverModeWeeklyBtn').classList.toggle('active', state.serverWeeklyMode);
+
+  const srvFilterCount =
+    (state.serverMode ? 1 : 0) +
+    (state.serverRegion ? 1 : 0) +
+    (!state.serverActiveOnly ? 1 : 0);
+  $('serversFilterCountBadge').textContent = String(srvFilterCount);
+  $('serversFilterCountBadge').classList.toggle('hidden', srvFilterCount === 0);
+  $('serversFiltersToggleBtn').classList.toggle('active', state.serversFiltersOpen || srvFilterCount > 0);
+  $('serversFiltersToggleBtn').setAttribute('aria-expanded', String(state.serversFiltersOpen));
+  $('serversFilterDrawer').classList.toggle('hidden', !state.serversFiltersOpen);
 
   if (!state.serversLoaded) {
     if (state.serversError) {
@@ -2651,12 +2837,14 @@ function bindEvents() {
     state.search = '';
     state.category = '';
     state.difficulty = '';
+    state.tile = '';
     state.mapper = '';
     state.favOnly = false;
     state.sort = 'release-desc';
     state.page = 1;
     $('mapSearch').value = '';
     $('difficultySelect').value = '';
+    $('tileSelect').value = '';
     $('sortSelect').value = 'release-desc';
     if (!$('mapModal').classList.contains('hidden')) {
       closeMapModal({ push: false });
@@ -2722,6 +2910,23 @@ function bindEvents() {
     if (e.target.id === 'mapModal') closeMapModal();
   });
 
+  $('imageLightboxClose').addEventListener('click', closeImageLightbox);
+  $('imageLightbox').addEventListener('click', (e) => {
+    if (e.target.id === 'imageLightbox' || e.target.id === 'imageLightboxImg') {
+      closeImageLightbox();
+    }
+  });
+
+  $('mapsFiltersToggleBtn').addEventListener('click', () => {
+    state.mapsFiltersOpen = !state.mapsFiltersOpen;
+    renderMapsContent({ pushUrl: false });
+  });
+
+  $('serversFiltersToggleBtn').addEventListener('click', () => {
+    state.serversFiltersOpen = !state.serversFiltersOpen;
+    renderServersView({ pushUrl: false });
+  });
+
   // Map search & autocomplete
   $('mapSearch').addEventListener('input', (e) => {
     clearSsrContent({ force: true });
@@ -2775,6 +2980,13 @@ function bindEvents() {
 
   $('difficultySelect').addEventListener('change', (e) => {
     state.difficulty = e.target.value;
+    state.page = 1;
+    applyMapFilters();
+    renderMapsContent();
+  });
+
+  $('tileSelect').addEventListener('change', (e) => {
+    state.tile = e.target.value;
     state.page = 1;
     applyMapFilters();
     renderMapsContent();
@@ -2850,11 +3062,13 @@ function bindEvents() {
     state.search = '';
     state.category = '';
     state.difficulty = '';
+    state.tile = '';
     state.mapper = '';
     state.favOnly = false;
     state.page = 1;
     $('mapSearch').value = '';
     $('difficultySelect').value = '';
+    $('tileSelect').value = '';
     applyMapFilters();
     renderMapsContent();
   });
@@ -2890,9 +3104,18 @@ function bindEvents() {
     renderServersView();
   });
 
-  $('serverWeeklyBtn').addEventListener('click', () => {
-    state.serverWeeklyMode = !state.serverWeeklyMode;
-    renderServersView();
+  $('serverModeLiveBtn').addEventListener('click', () => {
+    if (state.serverWeeklyMode) {
+      state.serverWeeklyMode = false;
+      renderServersView();
+    }
+  });
+
+  $('serverModeWeeklyBtn').addEventListener('click', () => {
+    if (!state.serverWeeklyMode) {
+      state.serverWeeklyMode = true;
+      renderServersView();
+    }
   });
 
   $('serverRefreshBtn').addEventListener('click', () => loadServersData({ forceRefresh: true }));
@@ -3019,8 +3242,22 @@ function bindEvents() {
         state.difficulty = '';
         $('difficultySelect').value = '';
       }
+      if (which === 'tile' || which === 'all') {
+        state.tile = '';
+        $('tileSelect').value = '';
+      }
       if (which === 'mapper' || which === 'all') state.mapper = '';
       if (which === 'fav' || which === 'all') state.favOnly = false;
+      state.page = 1;
+      applyMapFilters();
+      renderMapsContent();
+      return;
+    }
+
+    const quickTileBtn = target.closest('[data-quick-tile]');
+    if (quickTileBtn) {
+      const tid = quickTileBtn.getAttribute('data-quick-tile') || '';
+      state.tile = state.tile === tid ? '' : tid;
       state.page = 1;
       applyMapFilters();
       renderMapsContent();
@@ -3156,6 +3393,49 @@ function bindEvents() {
       return;
     }
 
+    const inspectTileBtn = target.closest('[data-inspect-tile]');
+    if (inspectTileBtn) {
+      const tid = inspectTileBtn.getAttribute('data-inspect-tile') || '';
+      state.selectedModalTile = state.selectedModalTile === tid ? null : tid;
+      const base = state.activeMapName ? findBaseMapForModal(state.activeMapName) : null;
+      const tiles = Array.isArray(state.activeMapDetail?.tiles)
+        ? state.activeMapDetail.tiles
+        : base?.tiles || [];
+      const tilesEl = $('mapModalTiles');
+      if (tilesEl) tilesEl.innerHTML = renderMapTilesSection(tiles);
+      return;
+    }
+
+    const filterTileBtn = target.closest('[data-filter-tile]');
+    if (filterTileBtn) {
+      const tid = normalizeTileId(filterTileBtn.getAttribute('data-filter-tile')) ||
+        filterTileBtn.getAttribute('data-filter-tile') || '';
+      state.tile = tid;
+      state.category = '';
+      state.difficulty = '';
+      state.mapper = '';
+      state.search = '';
+      state.favOnly = false;
+      state.page = 1;
+      $('mapSearch').value = '';
+      $('difficultySelect').value = '';
+      $('tileSelect').value = tid;
+      closeMapModal({ push: false });
+      switchTab('maps');
+      applyMapFilters();
+      renderMapsContent({ pushUrl: true });
+      return;
+    }
+
+    const zoomEl = target.closest('[data-zoom-image]');
+    if (zoomEl) {
+      openImageLightbox(
+        zoomEl.getAttribute('data-zoom-image'),
+        zoomEl.getAttribute('data-zoom-alt') || ''
+      );
+      return;
+    }
+
     const mapTabBtn = target.closest('[data-map-tab]');
     if (mapTabBtn && state.activeMapDetail) {
       state.activeMapTab = mapTabBtn.getAttribute('data-map-tab');
@@ -3208,6 +3488,10 @@ function bindEvents() {
     const isTyping = tag === 'INPUT' || tag === 'TEXTAREA' || tag === 'SELECT';
 
     if (e.key === 'Escape') {
+      if (!$('imageLightbox').classList.contains('hidden')) {
+        closeImageLightbox();
+        return;
+      }
       if (!$('mapModal').classList.contains('hidden')) {
         closeMapModal();
         return;
@@ -3258,6 +3542,7 @@ function bindEvents() {
     loadStateFromUrl();
     $('mapSearch').value = state.search;
     $('difficultySelect').value = state.difficulty;
+    $('tileSelect').value = state.tile;
     $('sortSelect').value = state.sort;
     $('navMaps').classList.toggle('active', state.tab === 'maps');
     $('navServers').classList.toggle('active', state.tab === 'servers');
@@ -3304,6 +3589,7 @@ function init() {
   $('pageSizeSelect').value = String(state.pageSize);
   $('serverSearch').value = state.serverSearch;
   $('serverRegionSelect').value = state.serverRegion;
+  populateTileFilterOptions();
   if (state.activePlayerName) {
     $('playerSearch').value = state.activePlayerName;
     $('playerSearchClear').classList.remove('hidden');

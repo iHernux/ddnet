@@ -112,4 +112,9 @@ export const icons = {
     svg('<path d="M12 22s8-4 8-10V5l-8-3-8 3v7c0 6 8 10 8 10z"/>', s),
   chevronDown: (s = 15) => svg('<path d="m6 9 6 6 6-6"/>', s),
   chevronUp: (s = 15) => svg('<path d="m18 15-6-6-6 6"/>', s),
+  maximize: (s = 14) =>
+    svg(
+      '<polyline points="15 3 21 3 21 9"/><polyline points="9 21 3 21 3 15"/><line x1="21" y1="3" x2="14" y2="10"/><line x1="3" y1="21" x2="10" y2="14"/>',
+      s
+    ),
 };

@@ -48,7 +48,7 @@
 <link rel="preconnect" href="https://fonts.googleapis.com" />
 <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
 <link href="https://fonts.googleapis.com/css2?family=Plus+Jakarta+Sans:wght@400;500;600;700&family=JetBrains+Mono:wght@400;500&display=swap" rel="stylesheet" />
-<link rel="stylesheet" href="/assets/styles.css?v=20261124a" />
+<link rel="stylesheet" href="/assets/styles.css?v=20261124b" />
 </head>
 <body>
   <header class="topbar">
@@ -102,44 +102,73 @@
             <div class="dropdown hidden" id="mapAutocomplete" role="listbox"></div>
           </div>
 
-          <div class="toolbar-selects">
-            <select id="difficultySelect" class="select" aria-label="Difficulty">
-              <option value="" data-i18n="allDifficulties">All difficulties</option>
-              <option value="0" data-i18n="starZero">0 Stars</option>
-              <option value="1" data-i18n-star="1">1 Stars</option>
-              <option value="2" data-i18n-star="2">2 Stars</option>
-              <option value="3" data-i18n-star="3">3 Stars</option>
-              <option value="4" data-i18n-star="4">4 Stars</option>
-              <option value="5" data-i18n-star="5">5 Stars</option>
-            </select>
+          <div class="toolbar-actions toolbar-actions-compact">
+            <button type="button" class="btn btn-toggle" id="mapsFiltersToggleBtn" aria-expanded="false" aria-controls="mapsFilterDrawer">
+              <span class="btn-icon" id="mapsFiltersBtnIcon"></span>
+              <span data-i18n="filtersBtn">Filters</span>
+              <span class="count-badge hidden" id="mapsFilterCountBadge">0</span>
+            </button>
 
-            <select id="sortSelect" class="select" aria-label="Sort">
-              <option value="release-desc" data-i18n="sortReleaseDesc">Newest</option>
-              <option value="live-desc" data-i18n="sortLiveDesc">Most Played Now</option>
-              <option value="name-asc" data-i18n="sortNameAsc">A → Z</option>
-              <option value="name-desc" data-i18n="sortNameDesc">Z → A</option>
-              <option value="diff-asc" data-i18n="sortDiffAsc">Easy → Hard</option>
-              <option value="diff-desc" data-i18n="sortDiffDesc">Hard → Easy</option>
-              <option value="points-desc" data-i18n="sortPointsDesc">Most Points</option>
-            </select>
-          </div>
-
-          <div class="toolbar-actions">
             <button type="button" class="btn btn-toggle" id="favOnlyBtn" aria-pressed="false">
               <span class="btn-icon" id="favBtnIcon"></span>
               <span data-i18n="favOnly">Favorites</span>
               <span class="count-badge" id="favCountBadge">0</span>
             </button>
 
-            <button type="button" class="btn" id="randomMapBtn" data-i18n-title="randomMapTitle" title="Open a random map from current results (R)">
-              <span class="btn-icon" id="randomBtnIcon"></span>
-              <span data-i18n="randomMap">Random</span>
-            </button>
-
             <div class="segmented" role="group" aria-label="View mode">
               <button type="button" class="seg-btn active" id="viewGridBtn" data-view="grid" data-i18n-title="viewGridTitle" title="Card grid view"></button>
               <button type="button" class="seg-btn" id="viewTableBtn" data-view="table" data-i18n-title="viewTableTitle" title="Table view"></button>
             </div>
+          </div>
+        </div>
+
+        <div class="filter-drawer hidden" id="mapsFilterDrawer">
+          <div class="filter-drawer-grid">
+            <label class="filter-field">
+              <span class="filter-field-label" data-i18n="filterDifficultyHeading">Difficulty</span>
+              <select id="difficultySelect" class="select" aria-label="Difficulty">
+                <option value="" data-i18n="allDifficulties">All difficulties</option>
+                <option value="0" data-i18n="starZero">0 Stars</option>
+                <option value="1" data-i18n-star="1">1 Stars</option>
+                <option value="2" data-i18n-star="2">2 Stars</option>
+                <option value="3" data-i18n-star="3">3 Stars</option>
+                <option value="4" data-i18n-star="4">4 Stars</option>
+                <option value="5" data-i18n-star="5">5 Stars</option>
+              </select>
+            </label>
+
+            <label class="filter-field">
+              <span class="filter-field-label" data-i18n="filterSortHeading">Sort</span>
+              <select id="sortSelect" class="select" aria-label="Sort">
+                <option value="release-desc" data-i18n="sortReleaseDesc">Newest</option>
+                <option value="live-desc" data-i18n="sortLiveDesc">Most Played Now</option>
+                <option value="name-asc" data-i18n="sortNameAsc">A → Z</option>
+                <option value="name-desc" data-i18n="sortNameDesc">Z → A</option>
+                <option value="diff-asc" data-i18n="sortDiffAsc">Easy → Hard</option>
+                <option value="diff-desc" data-i18n="sortDiffDesc">Hard → Easy</option>
+                <option value="points-desc" data-i18n="sortPointsDesc">Most Points</option>
+              </select>
+            </label>
+
+            <label class="filter-field">
+              <span class="filter-field-label" data-i18n="filterTileHeading">Mechanic / Tile</span>
+              <select id="tileSelect" class="select" aria-label="Mechanic">
+                <option value="" data-i18n="allTiles">All mechanics</option>
+              </select>
+            </label>
+
+            <div class="filter-field filter-field-action">
+              <span class="filter-field-label" aria-hidden="true">&nbsp;</span>
+              <button type="button" class="btn" id="randomMapBtn" data-i18n-title="randomMapTitle" title="Open a random map from current results (R)">
+                <span class="btn-icon" id="randomBtnIcon"></span>
+                <span data-i18n="randomMap">Random</span>
+              </button>
+            </div>
+          </div>
+
+          <div class="quick-tiles-wrap">
+            <span class="quick-tiles-label" data-i18n="popularTilesLabel">Popular mechanics</span>
+            <div class="quick-tiles-row" id="quickTilesRow"></div>
           </div>
         </div>
 
@@ -218,9 +247,6 @@
 
     <!-- Servers View -->
     <section id="serversView" class="hidden" aria-label="Servers">
-      <div class="community-strip" id="communityStrip" role="tablist" aria-label="Communities"></div>
-      <div id="communityInfoBar" class="community-info-bar hidden"></div>
-
       <div class="controls-panel">
         <div class="toolbar">
           <div class="search-wrap">
@@ -238,36 +264,55 @@
             <button type="button" class="clear-btn hidden" id="serverSearchClear" data-i18n-title="clearSearch" aria-label="Clear"></button>
           </div>
 
-          <div class="toolbar-selects">
-            <select id="serverModeSelect" class="select" aria-label="Mode">
-              <option value="" data-i18n="serversAllModes">All modes</option>
-            </select>
+          <div class="toolbar-actions toolbar-actions-compact">
+            <div class="segmented segmented-text" role="group" aria-label="Server ranking mode">
+              <button type="button" class="seg-btn active" id="serverModeLiveBtn" data-i18n="serversTabLive">Live</button>
+              <button type="button" class="seg-btn" id="serverModeWeeklyBtn" data-i18n="serversTabWeekly">Weekly</button>
+            </div>
 
-            <select id="serverRegionSelect" class="select" aria-label="Region">
-              <option value="" data-i18n="serversAllRegions">All regions</option>
-              <option value="eu" data-i18n="regionEu">Europe (EU)</option>
-              <option value="na" data-i18n="regionNa">North America (NA)</option>
-              <option value="sa" data-i18n="regionSa">South America (SA)</option>
-              <option value="as" data-i18n="regionAs">Asia (AS)</option>
-              <option value="af" data-i18n="regionAf">Africa (AF)</option>
-              <option value="oc" data-i18n="regionOc">Oceania (OC)</option>
-              <option value="other" data-i18n="regionOther">Other Region</option>
-            </select>
-          </div>
-
-          <div class="toolbar-actions">
-            <button type="button" class="btn btn-toggle active" id="serverActiveOnlyBtn" aria-pressed="true">
-              <span data-i18n="serversWithPlayersOnly">With players only</span>
-            </button>
-
-            <button type="button" class="btn btn-toggle" id="serverWeeklyBtn" aria-pressed="false">
-              <span class="btn-icon" id="serverWeeklyIcon"></span>
-              <span data-i18n="serversTopWeekly">Top Weekly</span>
+            <button type="button" class="btn btn-toggle" id="serversFiltersToggleBtn" aria-expanded="false" aria-controls="serversFilterDrawer">
+              <span class="btn-icon" id="serversFiltersBtnIcon"></span>
+              <span data-i18n="filtersBtn">Filters</span>
+              <span class="count-badge hidden" id="serversFilterCountBadge">0</span>
             </button>
 
             <button type="button" class="btn btn-icon-only" id="serverRefreshBtn" data-i18n-title="serversRefresh" title="Refresh" aria-label="Refresh"></button>
           </div>
         </div>
+
+        <div class="filter-drawer hidden" id="serversFilterDrawer">
+          <div class="filter-drawer-grid">
+            <label class="filter-field">
+              <span class="filter-field-label" data-i18n="filterModeHeading">Game Mode</span>
+              <select id="serverModeSelect" class="select" aria-label="Mode">
+                <option value="" data-i18n="serversAllModes">All modes</option>
+              </select>
+            </label>
+
+            <label class="filter-field">
+              <span class="filter-field-label" data-i18n="filterRegionHeading">Region</span>
+              <select id="serverRegionSelect" class="select" aria-label="Region">
+                <option value="" data-i18n="serversAllRegions">All regions</option>
+                <option value="eu" data-i18n="regionEu">Europe (EU)</option>
+                <option value="na" data-i18n="regionNa">North America (NA)</option>
+                <option value="sa" data-i18n="regionSa">South America (SA)</option>
+                <option value="as" data-i18n="regionAs">Asia (AS)</option>
+                <option value="af" data-i18n="regionAf">Africa (AF)</option>
+                <option value="oc" data-i18n="regionOc">Oceania (OC)</option>
+                <option value="other" data-i18n="regionOther">Other Region</option>
+              </select>
+            </label>
+
+            <div class="filter-field filter-field-action">
+              <span class="filter-field-label" aria-hidden="true">&nbsp;</span>
+              <button type="button" class="btn btn-toggle active" id="serverActiveOnlyBtn" aria-pressed="true">
+                <span data-i18n="serversWithPlayersOnly">With players only</span>
+              </button>
+            </div>
+          </div>
+        </div>
+
+        <div class="category-strip community-pill-strip" id="communityStrip" role="tablist" aria-label="Communities"></div>
       </div>
 
       <div class="meta-bar">
@@ -359,8 +404,14 @@
     </div>
   </div>
 
+  <!-- Image Lightbox -->
+  <div class="lightbox-backdrop hidden" id="imageLightbox" role="dialog" aria-modal="true" aria-label="Map image preview">
+    <button type="button" class="icon-btn lightbox-close" id="imageLightboxClose" data-i18n-title="closeLabel" aria-label="Close"></button>
+    <img id="imageLightboxImg" class="lightbox-img" src="" alt="" />
+  </div>
+
   <div class="toast" id="toast" role="status" aria-live="polite"></div>
 
-  <script type="module" src="/assets/app.js?v=20261124a"></script>
+  <script type="module" src="/assets/app.js?v=20261124b"></script>
 </body>
 </html>
