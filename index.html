@@ -48,7 +48,7 @@
 <link rel="preconnect" href="https://fonts.googleapis.com" />
 <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
 <link href="https://fonts.googleapis.com/css2?family=Plus+Jakarta+Sans:wght@400;500;600;700&family=JetBrains+Mono:wght@400;500&display=swap" rel="stylesheet" />
-<link rel="stylesheet" href="/assets/styles.css?v=20261121a" />
+<link rel="stylesheet" href="/assets/styles.css?v=20261124a" />
 </head>
 <body>
   <header class="topbar">
@@ -58,7 +58,7 @@
           <img src="/apple-touch-icon.png" alt="DDNet" class="brand-logo" width="26" height="26" />
           <span class="brand-name" data-i18n="brand">DDNet Archive</span>
         </a>
-        <button type="button" class="live-pill" id="liveStatusBtn" data-i18n-title="liveBtnTitle" title="Live DDNet servers and player count">
+        <button type="button" class="live-pill" id="liveStatusBtn" data-i18n-title="liveBtnTitle" title="Live DDNet, KoG, and community servers status">
           <span class="live-dot" aria-hidden="true"></span>
           <span id="liveStatusText" data-i18n="liveConnecting">Live status…</span>
         </button>
@@ -66,6 +66,7 @@
 
       <nav class="nav-tabs" aria-label="Primary">
         <button type="button" class="nav-tab active" id="navMaps" data-tab="maps" data-i18n="navMaps">Maps</button>
+        <button type="button" class="nav-tab" id="navServers" data-tab="servers" data-i18n="navServers">Servers</button>
         <button type="button" class="nav-tab" id="navPlayers" data-tab="players" data-i18n="navPlayers">Players</button>
       </nav>
 
@@ -114,6 +115,7 @@
 
             <select id="sortSelect" class="select" aria-label="Sort">
               <option value="release-desc" data-i18n="sortReleaseDesc">Newest</option>
+              <option value="live-desc" data-i18n="sortLiveDesc">Most Played Now</option>
               <option value="name-asc" data-i18n="sortNameAsc">A → Z</option>
               <option value="name-desc" data-i18n="sortNameDesc">Z → A</option>
               <option value="diff-asc" data-i18n="sortDiffAsc">Easy → Hard</option>
@@ -214,6 +216,82 @@
       </div>
     </section>
 
+    <!-- Servers View -->
+    <section id="serversView" class="hidden" aria-label="Servers">
+      <div class="community-strip" id="communityStrip" role="tablist" aria-label="Communities"></div>
+      <div id="communityInfoBar" class="community-info-bar hidden"></div>
+
+      <div class="controls-panel">
+        <div class="toolbar">
+          <div class="search-wrap">
+            <span class="search-leading" id="serverSearchIcon"></span>
+            <input
+              type="search"
+              id="serverSearch"
+              class="input search-input"
+              autocomplete="off"
+              spellcheck="false"
+              data-i18n-placeholder="serversSearchPlaceholder"
+              placeholder="Search server, map, mode, or player…"
+            />
+            <kbd class="kbd-hint" aria-hidden="true">/</kbd>
+            <button type="button" class="clear-btn hidden" id="serverSearchClear" data-i18n-title="clearSearch" aria-label="Clear"></button>
+          </div>
+
+          <div class="toolbar-selects">
+            <select id="serverModeSelect" class="select" aria-label="Mode">
+              <option value="" data-i18n="serversAllModes">All modes</option>
+            </select>
+
+            <select id="serverRegionSelect" class="select" aria-label="Region">
+              <option value="" data-i18n="serversAllRegions">All regions</option>
+              <option value="eu" data-i18n="regionEu">Europe (EU)</option>
+              <option value="na" data-i18n="regionNa">North America (NA)</option>
+              <option value="sa" data-i18n="regionSa">South America (SA)</option>
+              <option value="as" data-i18n="regionAs">Asia (AS)</option>
+              <option value="af" data-i18n="regionAf">Africa (AF)</option>
+              <option value="oc" data-i18n="regionOc">Oceania (OC)</option>
+              <option value="other" data-i18n="regionOther">Other Region</option>
+            </select>
+          </div>
+
+          <div class="toolbar-actions">
+            <button type="button" class="btn btn-toggle active" id="serverActiveOnlyBtn" aria-pressed="true">
+              <span data-i18n="serversWithPlayersOnly">With players only</span>
+            </button>
+
+            <button type="button" class="btn btn-toggle" id="serverWeeklyBtn" aria-pressed="false">
+              <span class="btn-icon" id="serverWeeklyIcon"></span>
+              <span data-i18n="serversTopWeekly">Top Weekly</span>
+            </button>
+
+            <button type="button" class="btn btn-icon-only" id="serverRefreshBtn" data-i18n-title="serversRefresh" title="Refresh" aria-label="Refresh"></button>
+          </div>
+        </div>
+      </div>
+
+      <div class="meta-bar">
+        <div class="meta-left" id="serversMeta"></div>
+        <div class="meta-right" id="serversActiveFilters"></div>
+      </div>
+
+      <div id="serversSkeleton" class="skeleton-list hidden"></div>
+
+      <div id="serversError" class="state-box hidden">
+        <div class="state-title" data-i18n="serversErrorTitle">Could not load live servers</div>
+        <div class="state-hint" data-i18n="serversErrorHint">Master server list is currently unreachable.</div>
+        <button type="button" class="btn btn-primary" id="retryServersBtn" data-i18n="retryBtn">Retry</button>
+      </div>
+
+      <div id="serversEmpty" class="state-box hidden">
+        <div class="state-title" data-i18n="serversEmptyTitle">No servers match your filters</div>
+        <div class="state-hint" data-i18n="serversEmptyHint">Try adjusting your search or disabling "With players only".</div>
+        <button type="button" class="btn" id="serversEmptyClearBtn" data-i18n="clearAllFilters">Clear filters</button>
+      </div>
+
+      <div class="servers-list hidden" id="serversList"></div>
+    </section>
+
     <!-- Players View -->
     <section id="playersView" class="hidden" aria-label="Players">
       <div class="player-search-panel">
@@ -283,6 +361,6 @@
 
   <div class="toast" id="toast" role="status" aria-live="polite"></div>
 
-  <script type="module" src="/assets/app.js?v=20261121a"></script>
+  <script type="module" src="/assets/app.js?v=20261124a"></script>
 </body>
 </html>

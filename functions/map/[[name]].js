@@ -9,8 +9,14 @@ import {
   parseReleaseMs,
   toIsoDate,
 } from '../_shared/seo.js';
+import {
+  fetchMasterSnapshot,
+  fetchStatusTwJson,
+  inferLiveCategory,
+} from '../_shared/live.js';
 
 const CACHE_OK = 'public, max-age=300, s-maxage=1800, stale-while-revalidate=86400';
+const CACHE_COMMUNITY = 'public, max-age=60, s-maxage=180, stale-while-revalidate=600';
 const CACHE_404 = 'public, max-age=60, s-maxage=300';
 
 function parseRawMapParam(pathname) {
@@ -108,10 +114,47 @@ function buildMapSsrHtml(map, relatedMaps) {
   </article>`;
 }
 
+function buildCommunityMapSsrHtml(mapName, info) {
+  const modeLabel = info.gameType || info.category || 'Community';
+  const commLabel = info.communityName || 'Community Servers';
+  const firstSeenIso = toIsoDate(info.firstSeen);
+
+  return `<article id="ssrContent" class="ssr-block" data-ssr-type="community-map">
+    <nav class="ssr-breadcrumb" aria-label="Breadcrumb">
+      <a href="/">DDNet Archive</a>
+      <span aria-hidden="true">/</span>
+      <a href="/?tab=servers">Servers</a>
+      <span aria-hidden="true">/</span>
+      <span>${escapeHtml(mapName)}</span>
+    </nav>
+    <div class="ssr-map-info">
+      <h1>${escapeHtml(mapName)}</h1>
+      <p class="ssr-lead">
+        <strong>${escapeHtml(mapName)}</strong> is a live community <strong>${escapeHtml(info.category)}</strong> map
+        (${escapeHtml(modeLabel)}) hosted on <strong>${escapeHtml(commLabel)}</strong>,
+        currently active on <strong>${info.liveServers}</strong> server${info.liveServers === 1 ? '' : 's'} with
+        <strong>${info.livePlayers}</strong> online player${info.livePlayers === 1 ? '' : 's'}.
+      </p>
+      <dl class="ssr-meta-list">
+        <div><dt>Category</dt><dd>${escapeHtml(info.category)}</dd></div>
+        <div><dt>Mode</dt><dd>${escapeHtml(modeLabel)}</dd></div>
+        <div><dt>Community</dt><dd>${escapeHtml(commLabel)}</dd></div>
+        <div><dt>Online Players</dt><dd>${info.livePlayers}</dd></div>
+        <div><dt>Live Servers</dt><dd>${info.liveServers}</dd></div>
+        ${firstSeenIso ? `<div><dt>Tracked Since</dt><dd>${escapeHtml(firstSeenIso)}</dd></div>` : ''}
+      </dl>
+      <div class="ssr-actions">
+        <a class="btn btn-primary btn-sm" href="/?tab=servers">Browse Live Servers</a>
+        <a class="btn btn-sm" href="/">All Maps</a>
+      </div>
+    </div>
+  </article>`;
+}
+
 function buildNotFoundSsrHtml(rawName) {
   return `<section id="ssrContent" class="ssr-block ssr-not-found" data-ssr-status="404">
     <h1>Map Not Found</h1>
-    <p class="ssr-lead">No official DDNet map matching <strong>${escapeHtml(rawName || 'this URL')}</strong> was found in the catalog.</p>
+    <p class="ssr-lead">No official DDNet or live community map matching <strong>${escapeHtml(rawName || 'this URL')}</strong> was found.</p>
     <div class="ssr-actions">
       <a class="btn btn-primary btn-sm" href="/">Browse All DDNet Maps</a>
     </div>
@@ -172,19 +215,80 @@ export async function onRequest(context) {
     null;
 
   if (!map) {
-    const html404 = injectSeoIntoHtml(baseHtml, {
-      title: `Map Not Found – DDNet Archive`,
-      description: `No official DDNet map named "${trimmed}" exists in the DDNet Archive catalog.`,
-      canonical: `${SITE_ORIGIN}/`,
+    const [snapshot, statusRes] = await Promise.all([
+      fetchMasterSnapshot(context, url.origin).catch(() => null),
+      fetchStatusTwJson(`/map/name/${encodeURIComponent(trimmed)}`, 3500),
+    ]);
+
+    const masterMatches = snapshot
+      ? snapshot.servers.filter((s) => s.mapName && s.mapName.toLowerCase() === lower)
+      : [];
+    const hasStatus = Boolean(statusRes.ok && statusRes.data && statusRes.data.name);
+
+    if (masterMatches.length === 0 && !hasStatus) {
+      const html404 = injectSeoIntoHtml(baseHtml, {
+        title: `Map Not Found – DDNet Archive`,
+        description: `No official DDNet map named "${trimmed}" exists in the DDNet Archive catalog.`,
+        canonical: `${SITE_ORIGIN}/`,
+        robots: 'noindex, follow',
+        ssrHtml: buildNotFoundSsrHtml(trimmed),
+        replaceHomeH1: true,
+      });
+      return new Response(request.method === 'HEAD' ? null : html404, {
+        status: 404,
+        headers: {
+          'Content-Type': 'text/html; charset=utf-8',
+          'Cache-Control': CACHE_404,
+        },
+      });
+    }
+
+    const canonicalName = statusRes.data?.name || masterMatches[0]?.mapName || trimmed;
+    const canonicalPath = `/map/${encodeURIComponent(canonicalName)}`;
+    if (hasTrailingSlash || url.pathname !== canonicalPath) {
+      return Response.redirect(`${SITE_ORIGIN}${canonicalPath}${url.search}`, 301);
+    }
+
+    const firstMaster = masterMatches.find((s) => s.community !== 'other') || masterMatches[0];
+    const primaryCommunity = firstMaster?.community || 'other';
+    const communityName = firstMaster?.communityName || 'Community Servers';
+    const gameType =
+      firstMaster?.gameType || statusRes.data?.servers?.[0]?.gameType?.name || '';
+    const category = inferLiveCategory(gameType, canonicalName, primaryCommunity);
+    const liveServers = Math.max(masterMatches.length, Number(statusRes.data?.numServers || 0));
+    const livePlayers = Math.max(
+      masterMatches.reduce((acc, s) => acc + s.players, 0),
+      Number(statusRes.data?.numPlayers || statusRes.data?.numClients || 0)
+    );
+    const firstSeen = typeof statusRes.data?.createdAt === 'string' ? statusRes.data.createdAt : '';
+
+    const canonicalUrl = `${SITE_ORIGIN}${canonicalPath}`;
+    const title = `${canonicalName} (${category}) – Live Server Map | DDNet Archive`;
+    const description = `${canonicalName} is a live ${category} (${gameType || category}) map across ${liveServers} server(s) with ${livePlayers} players online right now.`;
+
+    const finalHtml = injectSeoIntoHtml(baseHtml, {
+      title,
+      description,
+      canonical: canonicalUrl,
+      ogImage: DEFAULT_OG_IMAGE,
+      ogImageHasDims: true,
       robots: 'noindex, follow',
-      ssrHtml: buildNotFoundSsrHtml(trimmed),
+      ssrHtml: buildCommunityMapSsrHtml(canonicalName, {
+        category,
+        gameType,
+        communityName,
+        liveServers,
+        livePlayers,
+        firstSeen,
+      }),
       replaceHomeH1: true,
     });
-    return new Response(request.method === 'HEAD' ? null : html404, {
-      status: 404,
+
+    return new Response(request.method === 'HEAD' ? null : finalHtml, {
+      status: 200,
       headers: {
         'Content-Type': 'text/html; charset=utf-8',
-        'Cache-Control': CACHE_404,
+        'Cache-Control': CACHE_COMMUNITY,
       },
     });
   }

@@ -89,4 +89,27 @@ export const icons = {
       '<line x1="4" y1="21" x2="4" y2="14"/><line x1="4" y1="10" x2="4" y2="3"/><line x1="12" y1="21" x2="12" y2="12"/><line x1="12" y1="8" x2="12" y2="3"/><line x1="20" y1="21" x2="20" y2="16"/><line x1="20" y1="12" x2="20" y2="3"/><line x1="1" y1="14" x2="7" y2="14"/><line x1="9" y1="8" x2="15" y2="8"/><line x1="17" y1="16" x2="23" y2="16"/>',
       s
     ),
+  server: (s = 16) =>
+    svg(
+      '<rect x="2" y="3" width="20" height="7" rx="2"/><rect x="2" y="14" width="20" height="7" rx="2"/><line x1="6" y1="6.5" x2="6.01" y2="6.5"/><line x1="6" y1="17.5" x2="6.01" y2="17.5"/>',
+      s
+    ),
+  download: (s = 15) =>
+    svg(
+      '<path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"/><polyline points="7 10 12 15 17 10"/><line x1="12" y1="15" x2="12" y2="3"/>',
+      s
+    ),
+  lock: (s = 14) =>
+    svg(
+      '<rect x="3" y="11" width="18" height="11" rx="2"/><path d="M7 11V7a5 5 0 0 1 10 0v4"/>',
+      s
+    ),
+  play: (s = 14) =>
+    svg('<polygon points="6 4 20 12 6 20 6 4"/>', s),
+  activity: (s = 16) =>
+    svg('<polyline points="22 12 18 12 15 21 9 3 6 12 2 12"/>', s),
+  shield: (s = 14) =>
+    svg('<path d="M12 22s8-4 8-10V5l-8-3-8 3v7c0 6 8 10 8 10z"/>', s),
+  chevronDown: (s = 15) => svg('<path d="m6 9 6 6 6-6"/>', s),
+  chevronUp: (s = 15) => svg('<path d="m18 15-6-6-6 6"/>', s),
 };

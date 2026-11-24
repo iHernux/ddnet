@@ -3,8 +3,10 @@ const MAPS_FRESH_TTL_MS = 15 * 60 * 1000;
 const MAPS_STALE_TTL_MS = 30 * 24 * 60 * 60 * 1000;
 const DETAIL_TTL_MS = 5 * 60 * 1000;
 const PLAYER_TTL_MS = 2 * 60 * 1000;
+const SERVERS_TTL_MS = 30 * 1000;
 
 let mapsMemoryCache = null;
+let serversMemoryCache = null;
 const mapDetailCache = new Map();
 const playerProfileCache = new Map();
 let suggestController = null;
@@ -144,4 +146,22 @@ export async function fetchOnlineStats() {
   const res = await fetch('/api/online', { headers: { Accept: 'application/json' } });
   if (!res.ok) throw new Error(`HTTP ${res.status}`);
   return res.json();
+}
+
+export async function fetchServers({ forceRefresh = false } = {}) {
+  if (
+    !forceRefresh &&
+    serversMemoryCache &&
+    Date.now() - serversMemoryCache.cachedAt < SERVERS_TTL_MS
+  ) {
+    return serversMemoryCache.data;
+  }
+
+  const endpoint = forceRefresh ? '/api/servers?refresh=1' : '/api/servers';
+  const res = await fetch(endpoint, { headers: { Accept: 'application/json' } });
+  if (!res.ok) throw new Error(`HTTP ${res.status}`);
+  const data = await res.json();
+  if (!data || !Array.isArray(data.servers)) throw new Error('Invalid servers payload');
+  serversMemoryCache = { cachedAt: Date.now(), data };
+  return data;
 }
