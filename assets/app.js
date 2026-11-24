@@ -1,4 +1,4 @@
-import { icons } from './icons.js?v=20261124b';
+import { icons } from './icons.js?v=20261124c';
 import {
   detectInitialLang,
   escapeAttr,
@@ -11,7 +11,7 @@ import {
   isRecentRelease,
   parseReleaseMs,
   t,
-} from './i18n.js?v=20261124b';
+} from './i18n.js?v=20261124c';
 import {
   fetchMapDetail,
   fetchMaps,
@@ -19,13 +19,14 @@ import {
   fetchPlayerProfile,
   fetchPlayerSuggestions,
   fetchServers,
-} from './api.js?v=20261124b';
+} from './api.js?v=20261124c';
 import {
   TILES_LIST,
   POPULAR_TILE_IDS,
   getTileInfo,
   normalizeTileId,
-} from './tiles.js?v=20261124b';
+} from './tiles.js?v=20261124c';
+import { GUIDE_SNIPPETS, renderGuideModalContent } from './guide.js?v=20261124c';
 
 const CATEGORY_ORDER = [
   'Novice',
@@ -142,6 +143,7 @@ const state = {
   onlineData: null,
   onlineError: false,
   liveModalTab: 'all',
+  guideTab: 'maps',
 
   activeMapName: null,
   activeMapDetail: null,
@@ -290,6 +292,40 @@ function safeHttpUrl(raw) {
   } catch {
     return '';
   }
+}
+
+function getMapDownloadUrl(mapObj, detail = null) {
+  const name = String(detail?.name || mapObj?.name || '').trim();
+  if (!name) return '';
+
+  const officialEntry = state.officialMapsByLower.get(name.toLowerCase());
+  const isOfficial =
+    detail?.source === 'ddnet' ||
+    mapObj?.source === 'ddnet' ||
+    Boolean(officialEntry);
+
+  if (isOfficial) {
+    const type = detail?.type || mapObj?.type || officialEntry?.type || '';
+    const params = new URLSearchParams({ name });
+    if (type) params.set('type', type);
+    params.set('source', 'ddnet');
+    return `/api/download?${params.toString()}`;
+  }
+
+  const lower = name.toLowerCase();
+  const hasServerUrl = Boolean(
+    safeHttpUrl(detail?.mapDownloadUrl) ||
+      safeHttpUrl(mapObj?.mapUrl) ||
+      safeHttpUrl(state.liveMapsByKey.get(lower)?.mapUrl) ||
+      state.serversData?.servers?.some(
+        (s) => s.mapName && s.mapName.toLowerCase() === lower && safeHttpUrl(s.mapUrl)
+      )
+  );
+  if (hasServerUrl) {
+    const params = new URLSearchParams({ name, source: 'community' });
+    return `/api/download?${params.toString()}`;
+  }
+  return '';
 }
 
 function safeConnectTarget(address) {
@@ -612,6 +648,7 @@ function applyTranslations() {
 function hydrateStaticIcons() {
   $('steamBtn').innerHTML = icons.gamepad(16);
   $('githubBtn').innerHTML = icons.github(16);
+  $('guideBtn').innerHTML = icons.helpCircle(16);
   $('mapSearchIcon').innerHTML = icons.search(15);
   $('mapSearchClear').innerHTML = icons.x(14);
   $('mapsFiltersBtnIcon').innerHTML = icons.sliders(15);
@@ -629,6 +666,7 @@ function hydrateStaticIcons() {
   $('playerSearchClear').innerHTML = icons.x(14);
   $('mapModalClose').innerHTML = icons.x(16);
   $('liveModalClose').innerHTML = icons.x(16);
+  $('guideModalClose').innerHTML = icons.x(16);
   $('imageLightboxClose').innerHTML = icons.x(18);
 }
 
@@ -794,7 +832,7 @@ function getCombinedMaps() {
       source: typeof meta.source === 'string' && meta.source ? meta.source : 'community',
       livePlayers: 0,
       liveServers: 0,
-      mapUrl: '',
+      mapUrl: safeHttpUrl(meta.mapUrl),
       mapSize: 0,
     });
   }
@@ -1151,6 +1189,7 @@ function renderMapsTable(maps) {
         : escapeHtml(formatDate(m.release, state.lang));
 
     const mobileSub = m.mapper || (m.communityName ? `${m.communityName}${m.gameType ? ` · ${m.gameType}` : ''}` : m.gameType || '');
+    const dlUrl = getMapDownloadUrl(m);
 
     return `<tr>
       <td class="col-fav">
@@ -1177,9 +1216,16 @@ function renderMapsTable(maps) {
       <td class="col-mapper">${mapperCell}</td>
       <td class="col-release tabular">${releaseCell}</td>
       <td class="col-actions">
-        <button type="button" class="row-icon-btn" data-copy-map="${escapeAttr(m.name)}" title="${escapeAttr(tr('copyCmd'))}" aria-label="${escapeAttr(tr('copyCmd'))}">
-          ${icons.copy(14)}
-        </button>
+        <div class="row-actions-group">
+          ${
+            dlUrl
+              ? `<a href="${escapeAttr(dlUrl)}" class="row-icon-btn" download="${escapeAttr(`${m.name}.map`)}" data-download-map="${escapeAttr(m.name)}" title="${escapeAttr(tr('downloadMapTitle'))}" aria-label="${escapeAttr(tr('downloadMapTitle'))}">${icons.download(14)}</a>`
+              : ''
+          }
+          <button type="button" class="row-icon-btn" data-copy-map="${escapeAttr(m.name)}" title="${escapeAttr(tr('copyCmd'))}" aria-label="${escapeAttr(tr('copyCmd'))}">
+            ${icons.copy(14)}
+          </button>
+        </div>
       </td>
     </tr>`;
   });
@@ -1228,14 +1274,23 @@ function renderMapsGrid(maps) {
              : escapeHtml(tr('communityMapTag'))
          }</span>`;
 
+    const dlUrl = getMapDownloadUrl(m);
+
     return `<article class="map-card">
       <div class="card-thumb" data-open-map="${escapeAttr(m.name)}">
         ${thumbContent}
         <div class="card-thumb-overlay">
           <div class="card-thumb-badges">${leftBadges.join('')}</div>
-          <button type="button" class="row-icon-btn${isFav ? ' fav-active' : ''}" data-toggle-fav="${escapeAttr(m.name)}" title="${escapeAttr(tr('toggleFav'))}" aria-label="${escapeAttr(tr('toggleFav'))}">
-            ${isFav ? icons.starFilled(14) : icons.star(14)}
-          </button>
+          <div class="card-thumb-actions">
+            ${
+              dlUrl
+                ? `<a href="${escapeAttr(dlUrl)}" class="row-icon-btn card-dl-btn" download="${escapeAttr(`${m.name}.map`)}" data-download-map="${escapeAttr(m.name)}" title="${escapeAttr(tr('downloadMapTitle'))}" aria-label="${escapeAttr(tr('downloadMapTitle'))}">${icons.download(14)}</a>`
+                : ''
+            }
+            <button type="button" class="row-icon-btn${isFav ? ' fav-active' : ''}" data-toggle-fav="${escapeAttr(m.name)}" title="${escapeAttr(tr('toggleFav'))}" aria-label="${escapeAttr(tr('toggleFav'))}">
+              ${isFav ? icons.starFilled(14) : icons.star(14)}
+            </button>
+          </div>
         </div>
       </div>
       <div class="card-body">
@@ -1348,6 +1403,7 @@ function syncBodyScrollLock() {
   const anyOpen =
     !$('mapModal').classList.contains('hidden') ||
     !$('liveModal').classList.contains('hidden') ||
+    !$('guideModal').classList.contains('hidden') ||
     !$('imageLightbox').classList.contains('hidden');
   if (anyOpen && !isBodyLocked) {
     lockedScrollY = window.scrollY || document.documentElement.scrollTop || 0;
@@ -1493,9 +1549,9 @@ function renderMapModalShell(base, detail = null) {
     }
   }
 
+  const dlUrl = getMapDownloadUrl(base, detail);
   let actionsHtml = '';
   if (isCommunity) {
-    const dlUrl = safeHttpUrl(detail?.mapDownloadUrl || base.mapUrl || '');
     const statusUrl = `https://status.tw/maps/${encodeURIComponent(mapName)}`;
     const hasKog =
       detail?.primaryCommunity === 'kog' ||
@@ -1503,7 +1559,7 @@ function renderMapModalShell(base, detail = null) {
       detail?.communities?.some((c) => c.id === 'kog');
 
     actionsHtml = `
-      ${dlUrl ? `<a class="btn btn-primary btn-sm" href="${escapeAttr(dlUrl)}" target="_blank" rel="noopener noreferrer">${icons.download(14)}<span>${escapeHtml(tr('mapDetailDownloadMap'))}</span></a>` : ''}
+      ${dlUrl ? `<a class="btn btn-primary btn-sm" href="${escapeAttr(dlUrl)}" download="${escapeAttr(`${mapName}.map`)}" data-download-map="${escapeAttr(mapName)}">${icons.download(14)}<span>${escapeHtml(tr('mapDetailDownloadMap'))}</span></a>` : ''}
       <a class="btn btn-sm" href="${escapeAttr(statusUrl)}" target="_blank" rel="noopener noreferrer">${icons.externalLink(14)}<span>${escapeHtml(tr('mapDetailStatusTwBtn'))}</span></a>
       ${hasKog ? `<a class="btn btn-sm" href="https://kog.tw/#p=maps&map=${encodeURIComponent(mapName)}" target="_blank" rel="noopener noreferrer">${icons.externalLink(14)}<span>${escapeHtml(tr('mapDetailKogBtn'))}</span></a>` : ''}
       <button type="button" class="btn btn-sm" data-copy-map="${escapeAttr(mapName)}">${icons.copy(14)}<span>${escapeHtml(tr('mapDetailCopyBtn'))}</span></button>
@@ -1516,7 +1572,8 @@ function renderMapModalShell(base, detail = null) {
       base.webPreview ||
       `https://ddnet.org/mappreview/?map=${encodeURIComponent(mapName)}`;
     actionsHtml = `
-      <a class="btn btn-primary btn-sm" href="${escapeAttr(webPreview)}" target="_blank" rel="noopener noreferrer">${icons.eye(14)}<span>${escapeHtml(tr('mapDetailPreviewBtn'))}</span></a>
+      ${dlUrl ? `<a class="btn btn-primary btn-sm" href="${escapeAttr(dlUrl)}" download="${escapeAttr(`${mapName}.map`)}" data-download-map="${escapeAttr(mapName)}">${icons.download(14)}<span>${escapeHtml(tr('mapDetailDownloadMap'))}</span></a>` : ''}
+      <a class="btn btn-sm" href="${escapeAttr(webPreview)}" target="_blank" rel="noopener noreferrer">${icons.eye(14)}<span>${escapeHtml(tr('mapDetailPreviewBtn'))}</span></a>
       <a class="btn btn-sm" href="${escapeAttr(website)}" target="_blank" rel="noopener noreferrer">${icons.externalLink(14)}<span>${escapeHtml(tr('mapDetailDdnetBtn'))}</span></a>
       <button type="button" class="btn btn-sm" data-copy-map="${escapeAttr(mapName)}">${icons.copy(14)}<span>${escapeHtml(tr('mapDetailCopyBtn'))}</span></button>
       <button type="button" class="btn btn-sm btn-toggle${isFav ? ' active' : ''}" data-modal-fav="${escapeAttr(mapName)}">${isFav ? icons.starFilled(14) : icons.star(14)}<span>${escapeHtml(tr('mapDetailFavBtn'))}</span></button>
@@ -1896,6 +1953,27 @@ function openLiveModal() {
 
 function closeLiveModal() {
   $('liveModal').classList.add('hidden');
+  syncBodyScrollLock();
+}
+
+function renderGuideModal() {
+  const body = $('guideModalBody');
+  if (!body) return;
+  body.innerHTML = renderGuideModalContent(state.lang, state.guideTab, icons);
+}
+
+function openGuideModal(tab = null) {
+  if (tab === 'maps' || tab === 'dummy') {
+    state.guideTab = tab;
+  }
+  renderGuideModal();
+  $('guideModal').classList.remove('hidden');
+  $('guideModalBody').scrollTop = 0;
+  syncBodyScrollLock();
+}
+
+function closeGuideModal() {
+  $('guideModal').classList.add('hidden');
   syncBodyScrollLock();
 }
 
@@ -2777,6 +2855,7 @@ function toggleFavoriteMap(mapName) {
       points: typeof match?.points === 'number' ? match.points : null,
       release: match?.release || '',
       thumbnail: match?.thumbnail || '',
+      mapUrl: safeHttpUrl(match?.mapUrl || match?.mapDownloadUrl || ''),
     };
     showToast(tr('addedFav', { name: cleanName }));
   }
@@ -2882,6 +2961,7 @@ function bindEvents() {
     }
     if (state.tab === 'players') renderPlayerView();
     if (!$('liveModal').classList.contains('hidden')) renderLiveModal();
+    if (!$('guideModal').classList.contains('hidden')) renderGuideModal();
     if (!$('mapModal').classList.contains('hidden') && state.activeMapName) {
       const base = findBaseMapForModal(state.activeMapName);
       renderMapModalShell(base, state.activeMapDetail);
@@ -2903,6 +2983,12 @@ function bindEvents() {
   $('liveModalClose').addEventListener('click', closeLiveModal);
   $('liveModal').addEventListener('click', (e) => {
     if (e.target.id === 'liveModal') closeLiveModal();
+  });
+
+  $('guideBtn').addEventListener('click', () => openGuideModal());
+  $('guideModalClose').addEventListener('click', closeGuideModal);
+  $('guideModal').addEventListener('click', (e) => {
+    if (e.target.id === 'guideModal') closeGuideModal();
   });
 
   $('mapModalClose').addEventListener('click', closeMapModal);
@@ -3358,6 +3444,30 @@ function bindEvents() {
       return;
     }
 
+    const guideTabBtn = target.closest('[data-guide-tab]');
+    if (guideTabBtn) {
+      state.guideTab = guideTabBtn.getAttribute('data-guide-tab') === 'dummy' ? 'dummy' : 'maps';
+      renderGuideModal();
+      $('guideModalBody').scrollTop = 0;
+      return;
+    }
+
+    const snippetBtn = target.closest('[data-copy-snippet-id]');
+    if (snippetBtn) {
+      const id = snippetBtn.getAttribute('data-copy-snippet-id') || '';
+      const snippet = GUIDE_SNIPPETS[id];
+      if (snippet) copyText(snippet, tr('copiedSnippet'));
+      return;
+    }
+
+    const dlEl = target.closest('[data-download-map]');
+    if (dlEl) {
+      e.stopPropagation();
+      const mapName = dlEl.getAttribute('data-download-map') || 'map';
+      showToast(tr('downloadingMap', { name: mapName }));
+      return;
+    }
+
     const openMapEl = target.closest('[data-open-map]');
     if (openMapEl) {
       if (openMapEl.tagName === 'A' && isModifiedClick(e)) return;
@@ -3500,6 +3610,10 @@ function bindEvents() {
         closeLiveModal();
         return;
       }
+      if (!$('guideModal').classList.contains('hidden')) {
+        closeGuideModal();
+        return;
+      }
       if (!$('mapAutocomplete').classList.contains('hidden')) {
         $('mapAutocomplete').classList.add('hidden');
         return;
@@ -3529,7 +3643,8 @@ function bindEvents() {
       (e.key === 'r' || e.key === 'R') &&
       state.tab === 'maps' &&
       $('mapModal').classList.contains('hidden') &&
-      $('liveModal').classList.contains('hidden')
+      $('liveModal').classList.contains('hidden') &&
+      $('guideModal').classList.contains('hidden')
     ) {
       e.preventDefault();
       openRandomMap();

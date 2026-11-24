@@ -103,7 +103,8 @@ function buildMapSsrHtml(map, relatedMaps) {
           ${releaseIso ? `<div><dt>Released</dt><dd>${escapeHtml(releaseIso)}</dd></div>` : ''}
         </dl>
         <div class="ssr-actions">
-          <a class="btn btn-primary btn-sm" href="${escapeAttr(webPreview)}" target="_blank" rel="noopener noreferrer">Web Preview</a>
+          <a class="btn btn-primary btn-sm" href="${escapeAttr(`/api/download?name=${encodeURIComponent(map.name)}&type=${encodeURIComponent(map.type)}&source=ddnet`)}" download="${escapeAttr(`${map.name}.map`)}">Download .map</a>
+          <a class="btn btn-sm" href="${escapeAttr(webPreview)}" target="_blank" rel="noopener noreferrer">Web Preview</a>
           <a class="btn btn-sm" href="${escapeAttr(website)}" target="_blank" rel="noopener noreferrer">Official DDNet Page</a>
           <a class="btn btn-sm" href="${escapeAttr(catUrl)}">All ${escapeHtml(map.type)} Maps</a>
         </div>

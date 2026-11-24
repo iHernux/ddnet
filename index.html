@@ -48,7 +48,7 @@
 <link rel="preconnect" href="https://fonts.googleapis.com" />
 <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
 <link href="https://fonts.googleapis.com/css2?family=Plus+Jakarta+Sans:wght@400;500;600;700&family=JetBrains+Mono:wght@400;500&display=swap" rel="stylesheet" />
-<link rel="stylesheet" href="/assets/styles.css?v=20261124b" />
+<link rel="stylesheet" href="/assets/styles.css?v=20261124c" />
 </head>
 <body>
   <header class="topbar">
@@ -73,6 +73,7 @@
       <div class="topbar-actions">
         <a class="icon-btn" id="steamBtn" href="steam://rungameid/412220" data-i18n-title="steamBtnTitle" title="Launch DDNet on Steam"></a>
         <a class="icon-btn" id="githubBtn" href="https://github.com/ddnet/ddnet-maps" target="_blank" rel="noopener noreferrer" data-i18n-title="githubBtnTitle" title="Official ddnet-maps GitHub repository"></a>
+        <button type="button" class="icon-btn" id="guideBtn" data-i18n-title="guideBtnTitle" title="Map setup &amp; Dummy Fly guide" aria-label="Map setup &amp; Dummy Fly guide"></button>
         <button type="button" class="lang-btn" id="langBtn" data-i18n-title="langBtnTitle" title="Switch language (TR / EN)">EN</button>
         <button type="button" class="icon-btn" id="themeBtn" data-i18n-title="themeBtnTitle" title="Toggle color theme"></button>
       </div>
@@ -404,6 +405,17 @@
     </div>
   </div>
 
+  <!-- Guide & Info Modal -->
+  <div class="modal-backdrop hidden" id="guideModal" role="dialog" aria-modal="true" aria-labelledby="guideModalTitle">
+    <div class="modal modal-lg">
+      <div class="modal-header">
+        <h2 class="modal-title" id="guideModalTitle" data-i18n="guideModalTitle">DDNet Guide &amp; Tips</h2>
+        <button type="button" class="icon-btn" id="guideModalClose" data-i18n-title="closeLabel" aria-label="Close"></button>
+      </div>
+      <div class="modal-body" id="guideModalBody"></div>
+    </div>
+  </div>
+
   <!-- Image Lightbox -->
   <div class="lightbox-backdrop hidden" id="imageLightbox" role="dialog" aria-modal="true" aria-label="Map image preview">
     <button type="button" class="icon-btn lightbox-close" id="imageLightboxClose" data-i18n-title="closeLabel" aria-label="Close"></button>
@@ -412,6 +424,6 @@
 
   <div class="toast" id="toast" role="status" aria-live="polite"></div>
 
-  <script type="module" src="/assets/app.js?v=20261124b"></script>
+  <script type="module" src="/assets/app.js?v=20261124c"></script>
 </body>
 </html>
