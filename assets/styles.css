@@ -3251,6 +3251,105 @@ select {
   line-height: 1.55;
 }
 
+.guide-callout-note {
+  margin: 2px 0 0;
+  padding-top: 7px;
+  border-top: 1px solid var(--border);
+  font-size: 12px;
+  color: var(--text-muted);
+  line-height: 1.5;
+}
+
+.guide-method-card {
+  background: var(--surface-2);
+  border: 1px solid var(--border);
+  border-radius: 10px;
+  padding: 12px 13px;
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
+}
+
+.guide-method-rec {
+  border-color: var(--border-strong);
+}
+
+.guide-method-head {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  flex-wrap: wrap;
+  gap: 8px;
+}
+
+.guide-method-head h4 {
+  margin: 0;
+  font-size: 13.5px;
+  font-weight: 600;
+  color: var(--text);
+}
+
+.guide-badge {
+  display: inline-flex;
+  align-items: center;
+  padding: 2px 8px;
+  border-radius: 999px;
+  font-size: 11px;
+  font-weight: 600;
+  border: 1px solid var(--border);
+  background: var(--surface);
+  color: var(--text-secondary);
+  white-space: nowrap;
+}
+
+.guide-badge-rec {
+  background: var(--success-soft);
+  border-color: rgba(52, 211, 153, 0.32);
+  color: var(--success);
+}
+
+.guide-kv-list {
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+  padding-top: 2px;
+}
+
+.guide-kv {
+  font-size: 12.5px;
+  color: var(--text-secondary);
+  line-height: 1.5;
+}
+
+.guide-kv strong {
+  color: var(--text);
+  font-weight: 600;
+}
+
+.guide-sub-block {
+  border-top: 1px solid var(--border);
+  padding-top: 9px;
+  display: flex;
+  flex-direction: column;
+  gap: 7px;
+}
+
+.guide-sub-title {
+  font-size: 12.5px;
+  font-weight: 600;
+  color: var(--text);
+}
+
+.guide-warn {
+  background: var(--star-soft);
+  border: 1px solid var(--star-border);
+  border-radius: 8px;
+  padding: 9px 11px;
+  font-size: 12.5px;
+  color: var(--text);
+  line-height: 1.5;
+}
+
 .guide-steps {
   margin: 0;
   padding-left: 18px;
@@ -3344,6 +3443,7 @@ select {
   line-height: 1.5;
   color: var(--text);
   background: var(--surface);
+  max-width: 100%;
   overflow-x: auto;
   white-space: pre;
 }

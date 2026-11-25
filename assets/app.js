@@ -1,4 +1,4 @@
-import { icons } from './icons.js?v=20261124c';
+import { icons } from './icons.js?v=20261125a';
 import {
   detectInitialLang,
   escapeAttr,
@@ -11,7 +11,7 @@ import {
   isRecentRelease,
   parseReleaseMs,
   t,
-} from './i18n.js?v=20261124c';
+} from './i18n.js?v=20261125a';
 import {
   fetchMapDetail,
   fetchMaps,
@@ -19,14 +19,14 @@ import {
   fetchPlayerProfile,
   fetchPlayerSuggestions,
   fetchServers,
-} from './api.js?v=20261124c';
+} from './api.js?v=20261125a';
 import {
   TILES_LIST,
   POPULAR_TILE_IDS,
   getTileInfo,
   normalizeTileId,
-} from './tiles.js?v=20261124c';
-import { GUIDE_SNIPPETS, renderGuideModalContent } from './guide.js?v=20261124c';
+} from './tiles.js?v=20261125a';
+import { GUIDE_SNIPPETS, renderGuideModalContent } from './guide.js?v=20261125a';
 
 const CATEGORY_ORDER = [
   'Novice',
