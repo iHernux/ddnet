@@ -1,4 +1,4 @@
-import { escapeAttr, escapeHtml, t } from './i18n.js?v=20261125a';
+import { escapeAttr, escapeHtml, t } from './i18n.js?v=20261125b';
 
 export const GUIDE_SNIPPETS = {
   // Map setup snippets
@@ -8,24 +8,17 @@ export const GUIDE_SNIPPETS = {
   cmd_sv_map: 'sv_map "Multeasymap"',
   cmd_local_connect: 'connect localhost:8303',
 
-  // Dummy fly & mid-air hover snippets (all strictly single-line, <255 chars, free default keys)
+  // Essential Dummy Fly & Mid-Air Hover snippets (single-line, <255 chars, free default keys)
   set_restore_weapon: 'cl_dummy_restore_weapon 0',
-  bind_manual_key: 'bind e "+toggle cl_dummy_hammer 1 0"',
-  cfg_deepfly_1file:
-    'bind f "bind mouse1 \\"+fire; +toggle cl_dummy_hammer 1 0\\"; cl_message_client_color green; echo Deep Fly ON; bind f \\"bind mouse1 +fire; cl_dummy_hammer 0; cl_message_client_color red; echo Deep Fly OFF; exec deepfly.cfg\\""',
-  exec_deepfly: 'exec deepfly.cfg',
-  bind_deepfly_f1_on: 'bind f "bind mouse1 \\"+fire; +toggle cl_dummy_hammer 1 0\\"; echo Deep Fly ON"',
-  bind_deepfly_f1_off: 'bind g "bind mouse1 +fire; cl_dummy_hammer 0; echo Deep Fly OFF"',
   cfg_pseudofly_1file:
     'bind r "bind mouse2 \\"+hook; +toggle cl_dummy_hammer 1 0\\"; cl_message_client_color green; echo Pseudofly ON; bind r \\"bind mouse2 +hook; cl_dummy_hammer 0; cl_message_client_color red; echo Pseudofly OFF; exec pseudofly.cfg\\""',
   exec_pseudofly: 'exec pseudofly.cfg',
+  cfg_deepfly_1file:
+    'bind f "bind mouse1 \\"+fire; +toggle cl_dummy_hammer 1 0\\"; cl_message_client_color green; echo Deep Fly ON; bind f \\"bind mouse1 +fire; cl_dummy_hammer 0; cl_message_client_color red; echo Deep Fly OFF; exec deepfly.cfg\\""',
+  exec_deepfly: 'exec deepfly.cfg',
   bind_emergency_reset:
-    'bind f6 "bind mouse1 +fire; bind mouse2 +hook; cl_dummy_hammer 0; cl_dummy_copy_moves 0; cl_dummy_control 0; cl_dummy_resetonswitch 0; dummy_reset; echo Dummy Reset OK"',
-  bind_copy_moves: 'bind j "toggle cl_dummy_copy_moves 0 1"',
-  bind_reset_on_switch: 'bind n "toggle cl_dummy_resetonswitch 0 1"',
-  bind_45deg:
-    'bind z "+toggle cl_mouse_max_distance 2 400; +toggle inp_mousesens 1 200; +showhookcoll"',
-  cmd_unbind_example: 'unbind e',
+    'bind f6 "bind mouse1 +fire; bind mouse2 +hook; cl_dummy_hammer 0; dummy_reset; echo Dummy Reset OK"',
+  bind_manual_key: 'bind e "+toggle cl_dummy_hammer 1 0"',
 };
 
 const GUIDE_COPY = {
@@ -51,91 +44,64 @@ const GUIDE_COPY = {
     onlineDesc:
       'İndirmeden oynamak için Sunucular sekmesinde veya harita detay penceresinde herhangi bir sunucunun Bağlan (ddnet://) butonuna tıkla ya da IP’yi kopyalayıp F1 konsoluna connect ip:port şeklinde yapıştır.',
 
-    // Dummy Fly & Hover Tab
-    dummyTitle: 'Oyuncular Dummy ile havada nasıl bu kadar stabil / asılı kalabiliyor?',
-    dummyCalloutTitle: 'Motor Mantığı: Sabit 0,5 sn Otomatik Döngü yerine Anlık Çekiç + 1:1 Pseudofly Ritmi',
+    // Essential Dummy Fly & Hover Tab
+    dummyTitle: 'Dummy ile havada nasıl stabil kalınır?',
+    dummyCalloutTitle: 'Mantığı: Otomatik 0,50 sn Döngüsü yerine Anlık Çekiç + 1:1 Pseudofly',
     dummyCalloutBody:
-      'DDNet 50 Hz (saniyede 50 tick) çalışır. Varsayılan H tuşundaki otomatik Dummy Hammerfly (toggle cl_dummy_hammer 0 1) açıkken dummy sabit olarak her 25 tick’te bir (0,50 sn) tam senin konumuna nişan alıp çekiç sallar; bu yüzden hızını düşürüp havada sabit durman zordur. "+toggle cl_dummy_hammer 1 0" ise tuşu bıraktığın an sayacı sıfırlar (m_DummyFire = 0). Böylece her kısa dokunuşta dummy anında tek bir isabetli çekiç vurur (yalnız 0,5 sn’den uzun basılı tutarsan 0,5 sn arayla tekrarlar). Bunun yanına 1:1 kısa hook (Pseudofly) eklendiğinde iki tee birbirine çarpmadan yerçekimini dengeler.',
+      'Varsayılan H tuşu (Otomatik Hammerfly) açıkken dummy sabit olarak her 0,50 saniyede bir vurur; bu yüzden yavaşlayıp havada durmak zordur. "+toggle cl_dummy_hammer 1 0" tuş bırakılınca sayacı sıfırladığı için kısa dokunuşlarla tam istediğin anda tek çekiç vurursun. Bunun yanında 1:1 kısa sağ tık (Pseudofly) yapınca tee’ler çarpışmadan yerçekimini dengeler.',
     dummyBotNote:
-      'Gerçekçi not: İnsan oyuncuların havada kalışında her zaman çok hafif ritmik sekme olur. Hilesiz sunucularda tee’nin tek piksel dahi kıpırdamadan robotik biçimde donup kaldığını görüyorsan, bu genellikle kısıtlamasız topluluk sunucularında kullanılan üçüncü parti bot/istemci eklentileridir (resmî DDNet sunucularında yasaktır).',
+      'Not: Gerçek oyuncular havada kalırken her zaman çok hafif ritmik sekme olur; tek piksel kıpırdamayan robotik asılı kalma yalnız kısıtlamasız sunucularda bot/modlu istemcilerle olur (resmî DDNet’te yasaktır).',
 
-    step0Title: 'Adım 0 — Başlamadan Önceki Tek Zorunlu Ayar (Çakışmasız Tuş Sözü)',
-    step0Intro:
-      'Önce Esc → Dummy bağla ile dummy’ni çıkar. Aşağıdaki tüm tuşlar (E, F, G, R, J, N, Z, F6) DDNet’in varsayılan tuşlarıyla çakışmaz — X (Dummy Değiştir), H (Otomatik Hammerfly), S (Hook Çizgisi), C/V (/rank, /info), Q (/spec), P (/pause) olduğu gibi kalır.',
-    restoreWeaponTitle: 'Dummy çekiç kilidi (F1 konsoluna 1 kez yapıştır & Enter)',
+    step0Title: 'Önce 1 Ayar (F1 Konsoluna Yapıştır & Enter)',
+    step0Desc:
+      'Esc → Dummy bağla ile dummy’ni çıkar. Aşağıdaki tuşlar (R, F, F6, E) varsayılan DDNet tuşlarıyla (X, H, S, C, V) çakışmaz.',
+    restoreWeaponTitle: 'Dummy çekiç kilidi (1 kez yapıştır & Enter)',
     restoreWeaponDesc:
-      'Varsayılan değeri 1’dir; dummy elinde tabanca/lazer varken hammerfly açtığında 1 vuruştan sonra sürekli silaha geri döner ve ritmi bozar. 0 yaptığında dummy çekiçte kilitli kalır (settings_ddnet.cfg içine otomatik kaydolur). Sadece dummy’den self-laser/shotgun atacağında tekrar 1 yap.',
+      'Varsayılan 1’dir; dummy her vuruştan sonra silaha dönüp ritmi bozar. 0 yaptığında çekiçte kalır ve kalıcı kaydolur.',
 
-    methodsTitle: 'Adım 1 — Sana En Uygun Kurulumu Seç (Yalnızca 1 Tanesini Kur)',
-    recBadge: 'Önerilen · En Basit',
-    cfgBadge: 'Pro Standart · 1 Dosya',
-    pseudoBadge: 'Tek Tuş Hook+Hammer · 1 Dosya',
+    methodsTitle: 'Sana Uygun Olanı Seç (Sadece 1 Tanesini Kur)',
+    recBadge: 'Önerilen · Havada Asılı Kalma',
+    altBadge: 'Alternatif · Klasik Deepfly',
+    whereLabel: 'Nereye konur:',
     howToUseLabel: 'Nasıl kullanılır:',
-    whereLabel: 'Nereye yazılır:',
-    undoLabel: 'Kapatma:',
+    undoLabel: 'Nasıl kapatılır:',
 
-    m1Title: 'Yöntem 1 — Dosyasız Ayrı Tuşla Manuel Hammer (E Tuşu)',
+    m1Title: '1. Tek Tuş Pseudofly — Sağ Tık Mouse2 (En Popüler)',
     m1Steps: [
-      'Oyun içinde F1 tuşuna basıp konsolu aç.',
-      'Aşağıdaki komutu yapıştırıp Enter’a bas, ardından F1 ile kapat. (Başparmağa almak istersen e yerine mouse4 veya mouse5 yazabilirsin.)',
-    ],
-    m1Where: 'F1 konsolu — ayar dosyası oluşturman gerekmez, tek satırdır ve kalıcı kaydolur.',
-    m1Use:
-      'Sağ tıkla (Mouse2) dummy’ni yakala; çekici dummy’ye vurdurmak istediğin her an E’ye kısa dokun-bırak. Sol tık (Mouse1) tamamen normal ateş olarak kalır.',
-    m1Undo: 'Sadece E’ye basmayı bırakman yeter; istersen F1’den unbind e yazarak kaldırabilirsin.',
-
-    m2Title: 'Yöntem 2 — 1 Dosyalı Deepfly (Sol Tık Mouse1 + F ile Aç/Kapa)',
-    m2Steps: [
-      'DDNet → Ayarlar → Genel → Dizini Aç (Open Directory) butonuna bas. (Dikkat: maps/ klasörüne değil, doğrudan settings_ddnet.cfg dosyasının yanındaki ana dizine gir.)',
-      'Burada deepfly.cfg adında yeni bir metin dosyası oluştur, aşağıdaki tek satırlık kodu yapıştırıp kaydet.',
-      'Oyun içinde F1’e basıp sadece 1 kere exec deepfly.cfg yaz ve Enter’a bas.',
-    ],
-    m2Where: 'Ana config klasörü (deepfly.cfg) + 1 kez F1’de exec deepfly.cfg.',
-    m2Use:
-      'F tuşuna bastığında konsolda yeşil "Deep Fly ON" yazar ve her Mouse1 tıklaman hem ateş eder hem dummy’ye anlık çekiç vurdurur (deep freeze’deki dummy’de bile çalışır; harita yapımcısı sv_deepfly 0 ile engellemediyse).',
-    m2Undo:
-      'F tuşuna tekrar bas → kırmızı "Deep Fly OFF" yazar, Mouse1 normale (+fire) döner ve cl_dummy_hammer 0 sıfırlanır.',
-    m2NoFileTitle: 'Dosya açmak istemiyorsan 0 dosyalı F1 alternatifi (F = Aç, G = Kapa)',
-    m2NoFileDesc:
-      'Bu iki satırı tek tek F1 konsoluna kopyalayıp Enter’a bas; dosya gerekmeden F ile açıp G ile kapatabilirsin.',
-
-    m3Title: 'Yöntem 3 — Tek Tuşla Pseudofly / Havada Asılı Kalma (Mouse2 + R Aç/Kapa)',
-    m3Steps: [
-      'Aynı ana dizine (settings_ddnet.cfg yanına) pseudofly.cfg adında bir dosya oluştur ve aşağıdaki tek satırı kaydedin.',
+      'DDNet → Ayarlar → Genel → Dizini Aç yolunu aç (maps/ içine DEĞİL, doğrudan settings_ddnet.cfg yanına gir).',
+      'pseudofly.cfg adında bir dosya açıp alttaki tek satırı yapıştır ve kaydet.',
       'Oyun içinde F1’e basıp 1 kere exec pseudofly.cfg yaz ve Enter’a bas.',
     ],
-    m3Where: 'Ana config klasörü (pseudofly.cfg) + 1 kez F1’de exec pseudofly.cfg.',
-    m3Use:
-      'R tuşuyla Pseudofly’ı aç. Artık her Mouse2 (sağ tık) tıklaman hem hook atar hem dummy çekicini tetikler — 1:1 kısa hook + çekiç ritmiyle tek tuştan havada asılı kalabilirsin.',
-    m3Undo: 'Normal hook’a dönmek için R tuşuna tekrar bas (veya acil durum için F6).',
+    m1Where: 'Ana config klasörü (pseudofly.cfg) + F1’den 1 kez exec pseudofly.cfg.',
+    m1Use:
+      'R tuşuna basıp aç (yeşil "Pseudofly ON" yazar). Artık her sağ tık (Mouse2) hem hook atar hem dummy’ye çekiç vurdurur; kısa ritmik tıklamalarla havada asılı kalabilirsin.',
+    m1Undo: 'Normal duvara hook atacağında tekrar R’ye bas (kırmızı "Pseudofly OFF").',
 
-    playTitle: 'Adım 2 — Oyunda Nasıl Uygulanır? (5 Adımda Stabil Havada Kalma)',
-    playSteps: [
-      'Hizala & Strong Hook avantajını bil: Düz duvarda veya zıplayıp dummy’nin üstüne geçerek hizalan. Ana tee’n sunucuya dummy’den önce girdiği için dummy üzerinde varsayılan olarak Strong Hook’a sahipsindir; bu da hook ile çekerken ve düşüşü frenlerken tam kontrol verir.',
-      '1:1 Pseudofly ritmini kur: Klasik hammerfly’da her 2 çekiçte bir uzun hook atılır. Havada durmak veya iğne deliğinden geçmek için her 1 çekiçte bir çok kısa hook (Mouse2) at ve iki tee birbirine çarpmadan bırak.',
-      'Aynı noktada asılı kalma vs yükselme: Kısa hook süresi + biraz daha seyrek vuruş düşüş hızını tam sıfırlayıp iki tee’yi havada asılı tutar; hook’u biraz uzatıp vuruş aralığını sıklaştırdığında yükselmeye veya yatay hızlanmaya başlarsın.',
-      'Havada frenleme & tavan altı (Kinta): Çift zıplaman (double jump) yokken aşağı kontrollü inmek için çekici kesip arka arkaya kısa hooklarla tee’leri hafifçe çarpıştır. Alçak tavan altında yatay giderken her vuruştan hemen sonra A/D ile kısa dokunuşlar yap.',
-      'Yön tuşunu basılı tutma: Havada asılı kalırken A/D’yi uzun basılı tutmak dengeyi bozar; yönü sadece vuruş anlarından sonra minik dokunuşlarla düzelt.',
+    m2Title: '2. Klasik Deepfly — Sol Tık Mouse1 (Deep Freeze İçin)',
+    m2Steps: [
+      'Aynı config klasörüne (settings_ddnet.cfg yanına) deepfly.cfg açıp alttaki tek satırı kaydet.',
+      'F1’e basıp 1 kere exec deepfly.cfg yaz ve Enter’a bas.',
     ],
+    m2Where: 'Ana config klasörü (deepfly.cfg) + F1’den 1 kez exec deepfly.cfg.',
+    m2Use:
+      'F tuşuyla aç ("Deep Fly ON"): her sol tık (Mouse1) ateş ederken dummy’ye çekiç vurdurur. Sağ tık (Mouse2) normal kalır; deep freeze haritalarında da çalışır (sv_deepfly 0 engellemediyse).',
+    m2Undo: 'Kapatmak için F tuşuna tekrar bas ("Deep Fly OFF").',
 
-    extrasTitle: 'Adım 3 — Ekstra Stabilite, Kritik Uyarılar ve Geri Alma',
-    resetTitle: 'Acil Durum Sıfırlama Tuşu (F6 — Kesinlikle Önerilir)',
+    tipsTitle: 'Oyunda Uygulama İpuçları & Güvenli Sıfırlama',
+    playSteps: [
+      'Önce sen bağlan & hizalan: Ana tee’n dummy’den önce girdiği için otomatik olarak Strong Hook’a (güçlü çekme) sahipsindir; bu düşüşü frenlemeyi kolaylaştırır.',
+      '1:1 ritim kur: Havada sabit durmak için her tek çekiçte bir çok kısa sağ tık yap (tee’ler çarpışmadan bırak); yükselmek için hook süresini ve hızını biraz artır.',
+      'Yönü minik dokunuşlarla düzelt: A/D tuşlarını basılı tutma, her vuruşun hemen ardından kısa tıkla.',
+    ],
+    resetTitle: 'Acil Durum Sıfırlama (F6 — Önerilen)',
     resetDesc:
-      'Mouse1/Mouse2 takılı kalırsa, deepfly açıkken yanlışlıkla çıkacak olursan veya dummy garip davranırsa F6 tuşuna bas: Mouse1/Mouse2’yi normale döndürür ve tüm dummy ayarlarını temizler.',
-    copyTitle: 'Dummy Hareket Aynalama (J Tuşu — Aç / Kapat)',
-    copyWarn:
-      'Kritik Uyarı: cl_dummy_copy_moves 1 açıkken dummy yalnız A/D yönünü değil; hook, zıplama, nişan ve ateşini de birebir kopyalar. Bu yüzden havada asılı kalırken sürekli açık bırakma — yalnızca uzun yatay geçişlerde veya tırmanışta anlık açıp kapat. (cl_dummy_control 1 hook/ateş kopyalamayı ayırır ama resmî DDNet Wiki bu ayarın dummy çekiç vuruşlarını kaçırmasına yol açabildiğini belirtir.)',
-    switchResetTitle: 'Tee Değiştirince Basılı Tuş Sıfırlama (N Tuşu)',
-    switchResetDesc:
-      'X ile dummy’ye geçerken basılı kalan yön/hook tuşlarının kilitlenmesini yönetir (0 = kapalı, 1 = dummy tuşlarını sıfırla). Duvar hooku tutarken tee değiştireceksen kapalı (0) tutmak düşmeni önler.',
-    aimTitle: '45° Hassas Nişan Kilidi (Z Tuşu — İsteğe Bağlı)',
-    aimDesc:
-      'Z basılıyken nişanı tam 45° açılara kilitler. Önceden farklı cl_mouse_max_distance (varsayılan 400) veya inp_mousesens (varsayılan 200) kullanıyorsan komuttaki 400 ve 200 sayılarını kendi değerlerinle değiştir (mevcut değerini görmek için F1’e sadece komut adını yaz).',
-    undoTitle: 'Kalıcılık & Kaldırma Notu',
-    undoDesc:
-      'DDNet oyundan çıkarken tüm bind’lerini settings_ddnet.cfg içine otomatik kaydeder. Deepfly/Pseudofly açıkken oyundan çıkarsan sonraki açılışta F6’ya bas veya kaldırdığın tuş için aşağıdaki gibi unbind kullan:',
+      'Deepfly/Pseudofly açıkken oyundan çıkarsan veya Mouse1/Mouse2 takılı kalırsa F6’ya bas; her şeyi anında normale döndürür.',
 
-    wikiRefsLabel: 'Doğrulanan Resmî Kaynaklar:',
+    quickDetailsSummary: 'Dosya oluşturmadan hızlı deneme (F1 — Opsiyonel)',
+    quickDetailsDesc:
+      'Dosya açmadan hemen denemek için F1’e yapıştır (e yerine farenin yan tuşu mouse4 yazabilirsin): Mouse2 ile hooklarken her vuruş için E’ye basıp bırak. Kaldırmak için F1’e unbind e yaz.',
+
+    wikiRefsLabel: 'Doğrulanan Kaynaklar:',
   },
   en: {
     tabMaps: 'Map Setup & Play',
@@ -159,89 +125,62 @@ const GUIDE_COPY = {
     onlineDesc:
       'Open the Servers tab (or any map detail modal) and click Join (ddnet://) on a live server, or click Copy IP and paste connect ip:port into the F1 console.',
 
-    // Dummy Fly & Hover Tab
-    dummyTitle: 'How players stay ultra-stable and hover still mid-air with Dummy Fly',
-    dummyCalloutTitle: 'Real Engine Logic: Instant Reset + On-Demand Hits + 1:1 Pseudofly Rhythm',
+    // Essential Dummy Fly & Hover Tab
+    dummyTitle: 'How to hover & fly stably with Dummy',
+    dummyCalloutTitle: 'How It Works: Instant Reset Hammer + 1:1 Pseudofly Timing',
     dummyCalloutBody:
-      'DDNet runs at 50 ticks/sec. While the default H key (toggle cl_dummy_hammer 0 1) is ON, your dummy fires on a fixed 25-tick timer (once every 0.50 s) aimed at your tee—making it hard to brake or hover. With "+toggle cl_dummy_hammer 1 0", releasing the key immediately resets the internal counter (m_DummyFire = 0). Short taps trigger one instant, auto-aimed hit whenever you want (holding >0.50 s repeats every 0.50 s). Paired with 1:1 short hook timing (Pseudofly), you cancel gravity cleanly in mid-air.',
+      'With the default H key (Auto Hammerfly), the dummy fires on a rigid 0.50 s timer, making it hard to slow down or hover. "+toggle cl_dummy_hammer 1 0" resets that timer on release, so each short tap gives an instant aimed hit on demand. Paired with brief 1:1 hooks (Pseudofly), you cancel gravity cleanly without colliding.',
     dummyBotNote:
-      'Honest note: Legitimate players always have tiny rhythmic micro-bounces. If you see a tee frozen completely motionless on a single pixel in an unrestricted community server, that is typically a third-party bot or modified client (strictly prohibited on official DDNet servers).',
+      'Note: Real human players always have tiny rhythmic micro-bounces; completely motionless single-pixel hovering on unrestricted servers is typically a bot or modified client (banned on official DDNet servers).',
 
-    step0Title: 'Step 0 — One Required Setting First (Zero Key Conflicts)',
-    step0Intro:
-      'Spawn your dummy first via Esc → Connect Dummy. All binds below use free keys (E, F, G, R, J, N, Z, F6) and leave DDNet defaults intact: X (Switch Dummy), H (Auto Hammerfly), S (Hookline), C/V (/rank, /info), Q (/spec), P (/pause).',
-    restoreWeaponTitle: 'Lock dummy on hammer (Paste once in F1 console & press Enter)',
+    step0Title: 'Step 0 — One Required Setting (Paste in F1 & Press Enter)',
+    step0Desc:
+      'Spawn your dummy via Esc → Connect Dummy. All keys below (R, F, F6, E) are free and leave DDNet defaults (X, H, S, C, V) untouched.',
+    restoreWeaponTitle: 'Lock dummy on hammer (Paste once in F1 & Enter)',
     restoreWeaponDesc:
-      'Default is 1: if your dummy held pistol/shotgun/laser before swinging, it flips back to that weapon after 1 hit and ruins your rhythm. Setting 0 keeps it locked on Hammer (saved automatically to settings_ddnet.cfg). Set back to 1 only for dummy self-laser or shotgun shots.',
+      'Default is 1, which flips the dummy back to gun/laser after 1 swing. Setting 0 locks it on hammer and saves automatically.',
 
-    methodsTitle: 'Step 1 — Pick ONE Setup Below (Only Install One)',
-    recBadge: 'Recommended · Simplest',
-    cfgBadge: 'Pro Standard · 1 File',
-    pseudoBadge: '1-Button Hover · 1 File',
-    howToUseLabel: 'How to use:',
+    methodsTitle: 'Pick ONE Setup Below',
+    recBadge: 'Recommended · 1-Button Hover',
+    altBadge: 'Alternative · Classic Deepfly',
     whereLabel: 'Where it goes:',
-    undoLabel: 'Turn off / undo:',
+    howToUseLabel: 'How to use:',
+    undoLabel: 'How to turn off:',
 
-    m1Title: 'Option 1 — Zero-File Dedicated Key (E Key Manual Hammer)',
+    m1Title: '1. One-Button Pseudofly — Mouse2 Hook+Hammer (Most Popular)',
     m1Steps: [
-      'Press F1 in-game to open the local console.',
-      'Paste this single line, press Enter, then press F1 to close. (Swap e for mouse4 or mouse5 if you prefer a side mouse button.)',
+      'Open DDNet → Settings → General → Open Directory (stay beside settings_ddnet.cfg, NOT inside maps/).',
+      'Create pseudofly.cfg, paste the single line below, and save.',
+      'In-game press F1, type exec pseudofly.cfg once, and press Enter.',
     ],
-    m1Where: 'F1 console only — no .cfg files needed; DDNet saves it automatically.',
+    m1Where: 'Config root folder (pseudofly.cfg) + run exec pseudofly.cfg once in F1.',
     m1Use:
-      'Hook your dummy with Mouse2 (+hook) and tap E once for every hit you want when hovering or pacing 1:1 Pseudofly. Mouse1 stays untouched for normal firing.',
-    m1Undo: 'Just stop pressing E—or run unbind e in F1 to remove it completely.',
+      'Press R to toggle ON (green "Pseudofly ON"). Now Mouse2 (right-click) both hooks and fires a dummy hammer hit—use short rhythmic clicks to hover in place.',
+    m1Undo: 'Press R again before hooking walls normally (red "Pseudofly OFF").',
 
-    m2Title: 'Option 2 — 1-File Deepfly Toggle (Mouse1 Fire+Hammer, F Toggles ON/OFF)',
+    m2Title: '2. Classic Deepfly — Mouse1 Fire+Hammer (Best for Deep Freeze)',
     m2Steps: [
-      'Open DDNet → Settings → General → Open Directory (important: stay in the config root beside settings_ddnet.cfg, NOT inside maps/).',
-      'Create a text file named deepfly.cfg, paste the single line below, and save.',
-      'Press F1 in-game and run exec deepfly.cfg once.',
+      'In the same config root (beside settings_ddnet.cfg), create deepfly.cfg with the single line below.',
+      'Press F1 and run exec deepfly.cfg once.',
     ],
     m2Where: 'Config root folder (deepfly.cfg) + run exec deepfly.cfg once in F1.',
     m2Use:
-      'Press F to toggle Deep Fly ON (prints green "Deep Fly ON" in console): every Mouse1 click fires your weapon AND triggers an instant dummy hammer toward you (also works on deep-frozen tees unless blocked by sv_deepfly 0).',
-    m2Undo:
-      'Press F again (red "Deep Fly OFF"): restores normal Mouse1 (+fire) and clears cl_dummy_hammer 0.',
-    m2NoFileTitle: 'Zero-file F1 alternative (F = ON, G = OFF)',
-    m2NoFileDesc:
-      'Paste each line into F1 and press Enter if you do not want to create any .cfg file.',
+      'Press F to toggle ON ("Deep Fly ON"): left-clicking (Mouse1) triggers your dummy hammer while leaving Mouse2 normal. Works with deep-frozen tees too unless disabled by sv_deepfly 0.',
+    m2Undo: 'Press F again to restore normal Mouse1 ("Deep Fly OFF").',
 
-    m3Title: 'Option 3 — Single-Button Pseudofly / Hover (Mouse2 Hook+Hammer, R Toggle)',
-    m3Steps: [
-      'In that same config root folder (beside settings_ddnet.cfg), create pseudofly.cfg with the single line below.',
-      'Press F1 in-game and run exec pseudofly.cfg once.',
-    ],
-    m3Where: 'Config root folder (pseudofly.cfg) + run exec pseudofly.cfg once in F1.',
-    m3Use:
-      'Press R to enable Pseudofly. Now Mouse2 (right click) both hooks AND fires a dummy hammer hit—great for 1-button 1:1 hover pacing.',
-    m3Undo: 'Press R again to restore plain +hook (or press F6 anytime).',
-
-    playTitle: 'Step 2 — How to Hover & Fly Stably In-Game (5 Steps)',
+    tipsTitle: '3 Quick Hover Tips & Safety Reset',
     playSteps: [
-      'Line up & use Strong Hook: Stack against a wall or jump over your dummy. Because your main tee connects before your dummy, you have Strong Hook on your dummy by default—giving tighter pull and braking control.',
-      'Use 1:1 Pseudofly timing: Standard hammerfly hooks once every two hammers. To hover or navigate tight gaps, hook briefly (Mouse2) once per hammer (1:1), releasing before the tees bump so hammer never hits cooldown on contact.',
-      'Hovering still vs climbing: Very short hook pulls + spaced hammer clicks cleanly cancel fall speed so both tees float near one spot; slightly longer hooks + faster taps climb or build speed.',
-      'Drop brake & low-ceiling Kinta: Without double-jump, stop hammering and repeatedly tap Mouse2 to bump together gently downward. Under low ceilings (Kinta), tap A/D right after each hit in tiny bursts.',
-      'Do not hold A/D down continuously while hovering: Always micro-tap right after each hammer impulse to correct horizontal drift.',
+      'Strong Hook advantage: Because you connect before your dummy, you have Strong Hook by default—making pulls and drop braking easier.',
+      '1:1 rhythm: For hovering in one spot, hook very briefly once per hammer hit and release before bumping; hold slightly longer to climb.',
+      'Micro-tap A/D: Do not hold movement keys down while hovering—correct drift with quick taps right after each hit.',
     ],
-
-    extrasTitle: 'Step 3 — Safety Reset, Warnings & Unbinding',
-    resetTitle: 'Emergency Reset Key (F6 — Strongly Recommended)',
+    resetTitle: 'Emergency Reset Key (F6 — Recommended)',
     resetDesc:
-      'If Mouse1/Mouse2 ever gets stuck or you quit while Deepfly/Pseudofly was toggled ON, press F6: immediately restores +fire/+hook and resets all dummy states cleanly.',
-    copyTitle: 'Dummy Copy Moves (J Key Toggle)',
-    copyWarn:
-      'Important Caveat: When cl_dummy_copy_moves 1 is ON, the dummy mirrors ALL inputs (hook, jump, aim, fire, left/right)—not just A/D! Keep it OFF while hovering, and only toggle briefly during long horizontal glides. (cl_dummy_control 1 separates hook/jump/fire, though the official DDNet Wiki warns it makes dummy hammer miss occasionally.)',
-    switchResetTitle: 'Reset Keys When Switching Tees (N Key Toggle)',
-    switchResetDesc:
-      'Controls whether held inputs clear when pressing X to switch tees (0 = off, 1 = reset dummy). Keep OFF (0) when holding a wall hook before switching so your tee does not let go.',
-    aimTitle: '45° Precision Aim Lock (Z Key — Optional)',
-    aimDesc:
-      'Locks aim to 45° increments while held. If you customized cl_mouse_max_distance (default 400) or inp_mousesens (default 200), check your values in F1 first and replace 400/200.',
-    undoTitle: 'Saving & Removing Binds',
-    undoDesc:
-      'DDNet automatically saves binds to settings_ddnet.cfg on exit. Always press F6 before quitting if Deepfly/Pseudofly is toggled ON, or remove a bind cleanly with unbind:',
+      'If Mouse1/Mouse2 ever feels stuck or you quit while Deepfly/Pseudofly was toggled ON, press F6 to reset everything back to normal.',
+
+    quickDetailsSummary: 'Quick test without creating files (F1 — Optional)',
+    quickDetailsDesc:
+      'To test with zero files, paste this in F1 (swap e for mouse4 if preferred): hook with Mouse2 and tap E per hammer hit. Run unbind e in F1 to remove.',
 
     wikiRefsLabel: 'Verified Sources:',
   },
@@ -360,7 +299,7 @@ export function renderGuideModalContent(lang, activeTab, icons) {
         ${icons.sliders(15)}
         <h3>${escapeHtml(c.step0Title)}</h3>
       </div>
-      <p class="guide-lead">${escapeHtml(c.step0Intro)}</p>
+      <p class="guide-lead">${escapeHtml(c.step0Desc)}</p>
       ${renderCopyCard(c.restoreWeaponTitle, c.restoreWeaponDesc, 'set_restore_weapon', GUIDE_SNIPPETS.set_restore_weapon, lang, icons)}
     </section>
 
@@ -370,7 +309,7 @@ export function renderGuideModalContent(lang, activeTab, icons) {
         <h3>${escapeHtml(c.methodsTitle)}</h3>
       </div>
 
-      <article class="guide-method-card guide-method-rec" data-guide-method="manual">
+      <article class="guide-method-card guide-method-rec" data-guide-method="pseudofly">
         <div class="guide-method-head">
           <h4>${escapeHtml(c.m1Title)}</h4>
           <span class="guide-badge guide-badge-rec">${escapeHtml(c.recBadge)}</span>
@@ -378,7 +317,8 @@ export function renderGuideModalContent(lang, activeTab, icons) {
         <ol class="guide-steps">
           ${c.m1Steps.map((s) => `<li>${escapeHtml(s)}</li>`).join('')}
         </ol>
-        ${renderSnippetBox('F1 Console (E Key / mouse4)', 'bind_manual_key', GUIDE_SNIPPETS.bind_manual_key, lang, icons)}
+        ${renderSnippetBox('pseudofly.cfg (1 Line)', 'cfg_pseudofly_1file', GUIDE_SNIPPETS.cfg_pseudofly_1file, lang, icons)}
+        ${renderSnippetBox('F1 Console (Run 1x)', 'exec_pseudofly', GUIDE_SNIPPETS.exec_pseudofly, lang, icons)}
         <div class="guide-kv-list">
           <div class="guide-kv"><strong>${escapeHtml(c.whereLabel)}</strong> <span>${escapeHtml(c.m1Where)}</span></div>
           <div class="guide-kv"><strong>${escapeHtml(c.howToUseLabel)}</strong> <span>${escapeHtml(c.m1Use)}</span></div>
@@ -389,7 +329,7 @@ export function renderGuideModalContent(lang, activeTab, icons) {
       <article class="guide-method-card" data-guide-method="deepfly">
         <div class="guide-method-head">
           <h4>${escapeHtml(c.m2Title)}</h4>
-          <span class="guide-badge">${escapeHtml(c.cfgBadge)}</span>
+          <span class="guide-badge">${escapeHtml(c.altBadge)}</span>
         </div>
         <ol class="guide-steps">
           ${c.m2Steps.map((s) => `<li>${escapeHtml(s)}</li>`).join('')}
@@ -401,60 +341,31 @@ export function renderGuideModalContent(lang, activeTab, icons) {
           <div class="guide-kv"><strong>${escapeHtml(c.howToUseLabel)}</strong> <span>${escapeHtml(c.m2Use)}</span></div>
           <div class="guide-kv"><strong>${escapeHtml(c.undoLabel)}</strong> <span>${escapeHtml(c.m2Undo)}</span></div>
         </div>
-        <div class="guide-sub-block">
-          <div class="guide-sub-title">${escapeHtml(c.m2NoFileTitle)}</div>
-          <p class="guide-lead">${escapeHtml(c.m2NoFileDesc)}</p>
-          ${renderSnippetBox('F1: F = Deep Fly ON', 'bind_deepfly_f1_on', GUIDE_SNIPPETS.bind_deepfly_f1_on, lang, icons)}
-          ${renderSnippetBox('F1: G = Deep Fly OFF', 'bind_deepfly_f1_off', GUIDE_SNIPPETS.bind_deepfly_f1_off, lang, icons)}
-        </div>
-      </article>
-
-      <article class="guide-method-card" data-guide-method="pseudofly">
-        <div class="guide-method-head">
-          <h4>${escapeHtml(c.m3Title)}</h4>
-          <span class="guide-badge">${escapeHtml(c.pseudoBadge)}</span>
-        </div>
-        <ol class="guide-steps">
-          ${c.m3Steps.map((s) => `<li>${escapeHtml(s)}</li>`).join('')}
-        </ol>
-        ${renderSnippetBox('pseudofly.cfg (1 Line)', 'cfg_pseudofly_1file', GUIDE_SNIPPETS.cfg_pseudofly_1file, lang, icons)}
-        ${renderSnippetBox('F1 Console (Run 1x)', 'exec_pseudofly', GUIDE_SNIPPETS.exec_pseudofly, lang, icons)}
-        <div class="guide-kv-list">
-          <div class="guide-kv"><strong>${escapeHtml(c.whereLabel)}</strong> <span>${escapeHtml(c.m3Where)}</span></div>
-          <div class="guide-kv"><strong>${escapeHtml(c.howToUseLabel)}</strong> <span>${escapeHtml(c.m3Use)}</span></div>
-          <div class="guide-kv"><strong>${escapeHtml(c.undoLabel)}</strong> <span>${escapeHtml(c.m3Undo)}</span></div>
-        </div>
       </article>
     </section>
 
     <section class="guide-section">
       <div class="guide-section-head">
         ${icons.gamepad(15)}
-        <h3>${escapeHtml(c.playTitle)}</h3>
+        <h3>${escapeHtml(c.tipsTitle)}</h3>
       </div>
       <ol class="guide-steps">
         ${c.playSteps.map((s) => `<li>${escapeHtml(s)}</li>`).join('')}
       </ol>
-    </section>
-
-    <section class="guide-section">
-      <div class="guide-section-head">
-        ${icons.shield(15)}
-        <h3>${escapeHtml(c.extrasTitle)}</h3>
-      </div>
       ${renderCopyCard(c.resetTitle, c.resetDesc, 'bind_emergency_reset', GUIDE_SNIPPETS.bind_emergency_reset, lang, icons)}
-      <div class="guide-warn">${escapeHtml(c.copyWarn)}</div>
-      ${renderCopyCard(c.copyTitle, '', 'bind_copy_moves', GUIDE_SNIPPETS.bind_copy_moves, lang, icons)}
-      ${renderCopyCard(c.switchResetTitle, c.switchResetDesc, 'bind_reset_on_switch', GUIDE_SNIPPETS.bind_reset_on_switch, lang, icons)}
-      ${renderCopyCard(c.aimTitle, c.aimDesc, 'bind_45deg', GUIDE_SNIPPETS.bind_45deg, lang, icons)}
-      ${renderCopyCard(c.undoTitle, c.undoDesc, 'cmd_unbind_example', GUIDE_SNIPPETS.cmd_unbind_example, lang, icons)}
+      <details class="guide-details">
+        <summary>${escapeHtml(c.quickDetailsSummary)}</summary>
+        <div class="guide-details-body">
+          <p class="guide-lead">${escapeHtml(c.quickDetailsDesc)}</p>
+          ${renderSnippetBox('F1 Console (E Key / mouse4)', 'bind_manual_key', GUIDE_SNIPPETS.bind_manual_key, lang, icons)}
+        </div>
+      </details>
     </section>
 
     <div class="guide-links">
       <span class="muted">${escapeHtml(c.wikiRefsLabel)}</span>
-      <a class="btn btn-sm" href="https://wiki.ddnet.org/wiki/Dummy" target="_blank" rel="noopener noreferrer">${icons.externalLink(12)}<span>Dummy Wiki</span></a>
       <a class="btn btn-sm" href="https://wiki.ddnet.org/wiki/Pseudofly" target="_blank" rel="noopener noreferrer">${icons.externalLink(12)}<span>Pseudofly Wiki</span></a>
-      <a class="btn btn-sm" href="https://wiki.ddnet.org/wiki/Hammerfly" target="_blank" rel="noopener noreferrer">${icons.externalLink(12)}<span>Hammerfly Wiki</span></a>
+      <a class="btn btn-sm" href="https://wiki.ddnet.org/wiki/Dummy" target="_blank" rel="noopener noreferrer">${icons.externalLink(12)}<span>Dummy Wiki</span></a>
       <a class="btn btn-sm" href="https://wiki.ddnet.org/wiki/Binds#Deep_Fly" target="_blank" rel="noopener noreferrer">${icons.externalLink(12)}<span>Deep Fly Binds</span></a>
     </div>
   `;
