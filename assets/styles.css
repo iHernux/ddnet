@@ -4024,4 +4024,177 @@ select {
     grid-template-columns: repeat(2, minmax(0, 1fr));
     gap: 8px;
   }
+  .mech-grid {
+    grid-template-columns: 1fr;
+  }
+  .cfg-row {
+    flex-wrap: wrap;
+  }
+  .cfg-key-select {
+    width: 100%;
+  }
+}
+
+/* Visual Config Builder & Mechanics Explorer */
+.cfg-rows-list {
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+}
+
+.cfg-row {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 12px;
+  padding: 10px 12px;
+  border-radius: 10px;
+  border: 1px solid var(--border);
+  background: var(--surface-2);
+}
+
+.cfg-row-toggle {
+  display: flex;
+  align-items: flex-start;
+  gap: 9px;
+  cursor: pointer;
+  flex: 1;
+  min-width: 0;
+}
+
+.cfg-row-toggle input[type='checkbox'] {
+  margin-top: 3px;
+  flex-shrink: 0;
+  accent-color: var(--accent);
+}
+
+.cfg-row-info {
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+  min-width: 0;
+}
+
+.cfg-row-info strong {
+  font-size: 13px;
+  color: var(--text);
+}
+
+.cfg-row-info span {
+  font-size: 11.5px;
+  color: var(--text-muted);
+}
+
+.cfg-key-select {
+  width: 112px;
+  flex-shrink: 0;
+  font-family: 'JetBrains Mono', monospace;
+}
+
+.cfg-conflict-warning {
+  padding: 10px 12px;
+  border-radius: 10px;
+  border: 1px solid var(--danger, #e11d48);
+  background: color-mix(in srgb, var(--danger, #e11d48) 12%, transparent);
+  color: var(--text);
+  font-size: 12.5px;
+}
+
+.cfg-conflict-list {
+  margin: 5px 0 0;
+  padding-left: 18px;
+}
+
+.cfg-ok-banner {
+  padding: 9px 12px;
+  border-radius: 10px;
+  border: 1px solid var(--success);
+  background: var(--success-soft);
+  color: var(--text);
+  font-size: 12.5px;
+}
+
+.cfg-preview-label {
+  font-size: 12px;
+  font-weight: 600;
+  color: var(--text-secondary);
+  margin-bottom: 5px;
+}
+
+.cfg-preview-code {
+  margin: 0;
+  padding: 10px 12px;
+  border-radius: 9px;
+  border: 1px solid var(--border);
+  background: var(--surface-2);
+  font-size: 11.5px;
+  line-height: 1.5;
+  overflow-x: auto;
+  white-space: pre-wrap;
+  word-break: break-all;
+}
+
+.mech-toolbar {
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+}
+
+.mech-grid {
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: 10px;
+}
+
+.mech-card {
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+  padding: 11px 12px;
+  border-radius: 10px;
+  border: 1px solid var(--border);
+  background: var(--surface-2);
+}
+
+.mech-card-head {
+  display: flex;
+  align-items: center;
+  gap: 9px;
+}
+
+.mech-card-titles {
+  display: flex;
+  flex-direction: column;
+  gap: 3px;
+  min-width: 0;
+}
+
+.mech-card-titles strong {
+  font-size: 13px;
+  color: var(--text);
+}
+
+.mech-card-badges {
+  display: flex;
+  align-items: center;
+  flex-wrap: wrap;
+  gap: 5px;
+}
+
+.mech-count-pill {
+  font-size: 11px;
+  color: var(--text-muted);
+}
+
+.mech-card-desc {
+  margin: 0;
+  font-size: 12px;
+  line-height: 1.45;
+  color: var(--text-secondary);
+  flex: 1;
+}
+
+.mech-card-foot {
+  display: flex;
+  justify-content: flex-end;
 }

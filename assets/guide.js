@@ -1,4 +1,5 @@
-import { escapeAttr, escapeHtml, t } from './i18n.js?v=20261126m3';
+import { escapeAttr, escapeHtml, t } from './i18n.js?v=20261126m4';
+import { renderConfigBuilderHtml, renderMechanicsExplorerHtml } from './builder.js?v=20261126m4';
 
 export const GUIDE_SNIPPETS = {
   // Map setup snippets
@@ -25,6 +26,8 @@ const GUIDE_COPY = {
   tr: {
     tabMaps: 'Harita Kurulumu & Oynama',
     tabDummy: 'Dummy Fly & Havada Asılı Kalma',
+    tabBuilder: '.cfg Oluşturucu',
+    tabMechanics: 'Mekanikler (40)',
 
     installTitle: '1. İndirilen .map dosyaları nereye atılır?',
     installIntro:
@@ -106,6 +109,8 @@ const GUIDE_COPY = {
   en: {
     tabMaps: 'Map Setup & Play',
     tabDummy: 'Dummy Fly & Mid-Air Hover',
+    tabBuilder: 'Config Builder',
+    tabMechanics: 'Mechanics (40)',
 
     installTitle: '1. Where to put downloaded .map files',
     installIntro:
@@ -217,9 +222,12 @@ function renderCopyCard(title, desc, snippetId, codeText, lang, icons) {
   </div>`;
 }
 
-export function renderGuideModalContent(lang, activeTab, icons) {
+export function renderGuideModalContent(lang, activeTab, icons, extraCtx = {}) {
   const c = GUIDE_COPY[lang === 'tr' ? 'tr' : 'en'];
-  const tab = activeTab === 'dummy' ? 'dummy' : 'maps';
+  const tab =
+    activeTab === 'dummy' || activeTab === 'builder' || activeTab === 'mechanics'
+      ? activeTab
+      : 'maps';
 
   const tabsHtml = `<div class="tabs-bar guide-tabs" role="tablist">
     <button type="button" class="tab-btn${tab === 'maps' ? ' active' : ''}" data-guide-tab="maps" role="tab" aria-selected="${tab === 'maps' ? 'true' : 'false'}">
@@ -228,7 +236,31 @@ export function renderGuideModalContent(lang, activeTab, icons) {
     <button type="button" class="tab-btn${tab === 'dummy' ? ' active' : ''}" data-guide-tab="dummy" role="tab" aria-selected="${tab === 'dummy' ? 'true' : 'false'}">
       ${icons.terminal(14)}<span>${escapeHtml(c.tabDummy)}</span>
     </button>
+    <button type="button" class="tab-btn${tab === 'builder' ? ' active' : ''}" data-guide-tab="builder" role="tab" aria-selected="${tab === 'builder' ? 'true' : 'false'}">
+      ${icons.sliders(14)}<span>${escapeHtml(c.tabBuilder)}</span>
+    </button>
+    <button type="button" class="tab-btn${tab === 'mechanics' ? ' active' : ''}" data-guide-tab="mechanics" role="tab" aria-selected="${tab === 'mechanics' ? 'true' : 'false'}">
+      ${icons.map(14)}<span>${escapeHtml(c.tabMechanics)}</span>
+    </button>
   </div>`;
+
+  if (tab === 'builder') {
+    return `${tabsHtml}${renderConfigBuilderHtml({
+      builderState: extraCtx.builderState,
+      lang,
+      icons,
+    })}`;
+  }
+
+  if (tab === 'mechanics') {
+    return `${tabsHtml}${renderMechanicsExplorerHtml({
+      lang,
+      icons,
+      tileCounts: extraCtx.tileCounts,
+      search: extraCtx.mechSearch || '',
+      group: extraCtx.mechGroup || 'all',
+    })}`;
+  }
 
   if (tab === 'maps') {
     const pathRows = [

@@ -1,4 +1,4 @@
-import { icons } from './icons.js?v=20261126m3';
+import { icons } from './icons.js?v=20261126m4';
 import {
   detectInitialLang,
   escapeAttr,
@@ -11,7 +11,7 @@ import {
   isRecentRelease,
   parseReleaseMs,
   t,
-} from './i18n.js?v=20261126m3';
+} from './i18n.js?v=20261126m4';
 import {
   fetchMapDetail,
   fetchMaps,
@@ -20,15 +20,20 @@ import {
   fetchPlayerSuggestions,
   fetchServers,
   fetchSkins,
-} from './api.js?v=20261126m3';
+} from './api.js?v=20261126m4';
 import {
   TILES_LIST,
   POPULAR_TILE_IDS,
   getTileInfo,
   normalizeTileId,
-} from './tiles.js?v=20261126m3';
-import { GUIDE_SNIPPETS, renderGuideModalContent } from './guide.js?v=20261126m3';
-import { renderDuoCompareHtml } from './duo.js?v=20261126m3';
+} from './tiles.js?v=20261126m4';
+import { GUIDE_SNIPPETS, renderGuideModalContent } from './guide.js?v=20261126m4';
+import {
+  buildConfigLines,
+  createDefaultBuilderState,
+  renderMechanicsGridHtml,
+} from './builder.js?v=20261126m4';
+import { renderDuoCompareHtml } from './duo.js?v=20261126m4';
 import {
   buildSkinConsoleCmds,
   buildSkinImageUrl,
@@ -37,7 +42,7 @@ import {
   hslToDdnetCode,
   loadSkinImage,
   renderTeeToCanvas,
-} from './tee.js?v=20261126m3';
+} from './tee.js?v=20261126m4';
 
 const CATEGORY_ORDER = [
   'Novice',
@@ -179,6 +184,9 @@ const state = {
   onlineError: false,
   liveModalTab: 'all',
   guideTab: 'maps',
+  builderState: createDefaultBuilderState(),
+  mechSearch: '',
+  mechGroup: 'all',
 
   skinsData: null,
   skinsLoaded: false,
@@ -2300,11 +2308,16 @@ function closeLiveModal() {
 function renderGuideModal() {
   const body = $('guideModalBody');
   if (!body) return;
-  body.innerHTML = renderGuideModalContent(state.lang, state.guideTab, icons);
+  body.innerHTML = renderGuideModalContent(state.lang, state.guideTab, icons, {
+    builderState: state.builderState,
+    tileCounts: state.tileCounts,
+    mechSearch: state.mechSearch,
+    mechGroup: state.mechGroup,
+  });
 }
 
 function openGuideModal(tab = null) {
-  if (tab === 'maps' || tab === 'dummy') {
+  if (tab === 'maps' || tab === 'dummy' || tab === 'builder' || tab === 'mechanics') {
     state.guideTab = tab;
   }
   renderGuideModal();
@@ -3984,6 +3997,43 @@ function bindEvents() {
     if (e.target.id === 'guideModal') closeGuideModal();
   });
 
+  $('guideModalBody')?.addEventListener('change', (e) => {
+    const tEl = e.target;
+    if (!tEl) return;
+    if (tEl.id === 'cfgRestoreWeaponToggle') {
+      state.builderState.restoreWeapon = Boolean(tEl.checked);
+      renderGuideModal();
+      return;
+    }
+    const enId = tEl.getAttribute('data-cfg-enable');
+    if (enId && state.builderState.items[enId]) {
+      state.builderState.items[enId].enabled = Boolean(tEl.checked);
+      renderGuideModal();
+      return;
+    }
+    const keyId = tEl.getAttribute('data-cfg-key');
+    if (keyId && state.builderState.items[keyId]) {
+      state.builderState.items[keyId].key = tEl.value;
+      renderGuideModal();
+    }
+  });
+
+  $('guideModalBody')?.addEventListener('input', (e) => {
+    const tEl = e.target;
+    if (!tEl || tEl.id !== 'mechSearchInput') return;
+    state.mechSearch = tEl.value;
+    const grid = $('mechGrid');
+    if (grid) {
+      grid.innerHTML = renderMechanicsGridHtml({
+        lang: state.lang,
+        icons,
+        tileCounts: state.tileCounts,
+        search: state.mechSearch,
+        group: state.mechGroup,
+      });
+    }
+  });
+
   $('skinModalClose')?.addEventListener('click', () => closeSkinModal());
   $('skinModal')?.addEventListener('click', (e) => {
     if (e.target.id === 'skinModal') closeSkinModal();
@@ -4613,9 +4663,56 @@ function bindEvents() {
 
     const guideTabBtn = target.closest('[data-guide-tab]');
     if (guideTabBtn) {
-      state.guideTab = guideTabBtn.getAttribute('data-guide-tab') === 'dummy' ? 'dummy' : 'maps';
+      const next = guideTabBtn.getAttribute('data-guide-tab');
+      state.guideTab =
+        next === 'dummy' || next === 'builder' || next === 'mechanics' ? next : 'maps';
       renderGuideModal();
       $('guideModalBody').scrollTop = 0;
+      return;
+    }
+
+    if (target.closest('#cfgCopyF1Btn')) {
+      const cmdText = buildConfigLines(state.builderState).join('\n');
+      if (cmdText) copyText(cmdText, tr('copiedSnippet'));
+      return;
+    }
+
+    if (target.closest('#cfgDownloadBtn')) {
+      const text = $('cfgPreviewText')?.textContent || `${buildConfigLines(state.builderState).join('\n')}\n`;
+      const blob = new Blob([text], { type: 'text/plain;charset=utf-8' });
+      const url = URL.createObjectURL(blob);
+      const a = document.createElement('a');
+      a.href = url;
+      a.download = 'ddnet_custom.cfg';
+      document.body.appendChild(a);
+      a.click();
+      a.remove();
+      setTimeout(() => URL.revokeObjectURL(url), 1000);
+      return;
+    }
+
+    if (target.closest('#cfgResetDefaultsBtn')) {
+      state.builderState = createDefaultBuilderState();
+      renderGuideModal();
+      return;
+    }
+
+    const mechGroupBtn = target.closest('[data-mech-group]');
+    if (mechGroupBtn) {
+      state.mechGroup = mechGroupBtn.getAttribute('data-mech-group') || 'all';
+      $('mechGroupPills')
+        ?.querySelectorAll('[data-mech-group]')
+        .forEach((b) => b.classList.toggle('active', b === mechGroupBtn));
+      const grid = $('mechGrid');
+      if (grid) {
+        grid.innerHTML = renderMechanicsGridHtml({
+          lang: state.lang,
+          icons,
+          tileCounts: state.tileCounts,
+          search: state.mechSearch,
+          group: state.mechGroup,
+        });
+      }
       return;
     }
 
@@ -4698,6 +4795,7 @@ function bindEvents() {
       $('difficultySelect').value = '';
       $('tileSelect').value = tid;
       closeMapModal({ push: false });
+      closeGuideModal();
       switchTab('maps');
       applyMapFilters();
       renderMapsContent({ pushUrl: true });
@@ -4855,7 +4953,7 @@ function bindEvents() {
 
     if (target.closest('#skinCopyCmdBtn')) {
       const cmd = $('skinConsolePreview')?.textContent || '';
-      if (cmd) copyTextToClipboard(cmd, tr('copiedSnippet'));
+      if (cmd) copyText(cmd, tr('copiedSnippet'));
       return;
     }
 
