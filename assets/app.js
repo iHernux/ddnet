@@ -1,4 +1,4 @@
-import { icons } from './icons.js?v=20261125b';
+import { icons } from './icons.js?v=20261126m1';
 import {
   detectInitialLang,
   escapeAttr,
@@ -11,7 +11,7 @@ import {
   isRecentRelease,
   parseReleaseMs,
   t,
-} from './i18n.js?v=20261125b';
+} from './i18n.js?v=20261126m1';
 import {
   fetchMapDetail,
   fetchMaps,
@@ -19,14 +19,14 @@ import {
   fetchPlayerProfile,
   fetchPlayerSuggestions,
   fetchServers,
-} from './api.js?v=20261125b';
+} from './api.js?v=20261126m1';
 import {
   TILES_LIST,
   POPULAR_TILE_IDS,
   getTileInfo,
   normalizeTileId,
-} from './tiles.js?v=20261125b';
-import { GUIDE_SNIPPETS, renderGuideModalContent } from './guide.js?v=20261125b';
+} from './tiles.js?v=20261126m1';
+import { GUIDE_SNIPPETS, renderGuideModalContent } from './guide.js?v=20261126m1';
 
 const CATEGORY_ORDER = [
   'Novice',
@@ -72,6 +72,7 @@ const STORAGE_KEYS = {
   mapFavMeta: 'ddnet_map_fav_meta_v1',
   playerFavs: 'ddnet_player_favorites',
   playerHistory: 'ddnet_player_history',
+  myPlayer: 'ddnet_my_player_v1',
   lang: 'ddnet_lang',
   theme: 'ddnet_theme',
   viewMode: 'ddnet_view_mode',
@@ -86,6 +87,7 @@ const VALID_SORTS = new Set([
   'diff-asc',
   'diff-desc',
   'points-desc',
+  'finishes-desc',
 ]);
 
 const VALID_REGIONS = new Set(['eu', 'na', 'sa', 'as', 'af', 'oc', 'other']);
@@ -104,7 +106,16 @@ const state = {
   mapper: '',
   sort: 'release-desc',
   favOnly: false,
+  completionFilter: '',
   mapsFiltersOpen: false,
+
+  myPlayerName: readString(STORAGE_KEYS.myPlayer),
+  myPlayerFinishes: new Map(),
+  myPlayerLoaded: false,
+  myPlayerLoading: false,
+  myPlayerError: false,
+  myPlayerFinishedCount: 0,
+  myPlayerReqId: 0,
 
   maps: [],
   officialMapsByLower: new Map(),
@@ -164,6 +175,23 @@ let mapSearchDebounce = null;
 let serverSearchDebounce = null;
 
 // Storage helpers
+function readString(key) {
+  try {
+    return String(localStorage.getItem(key) || '').trim();
+  } catch {
+    return '';
+  }
+}
+
+function writeString(key, val) {
+  try {
+    if (val) localStorage.setItem(key, val);
+    else localStorage.removeItem(key);
+  } catch {
+    // Ignore storage errors
+  }
+}
+
 function readTheme() {
   try {
     return localStorage.getItem(STORAGE_KEYS.theme) === 'light' ? 'light' : 'dark';
@@ -414,6 +442,7 @@ function loadStateFromUrl() {
   state.mapper = '';
   state.sort = 'release-desc';
   state.favOnly = false;
+  state.completionFilter = '';
   state.page = 1;
   state.activeMapName = null;
   state.serverCommunity = '';
@@ -487,6 +516,11 @@ function loadStateFromUrl() {
   if (view === 'grid' || view === 'table') state.viewMode = view;
 
   if (params.get('fav') === '1') state.favOnly = true;
+
+  const statusParam = (params.get('status') || '').trim().toLowerCase();
+  if (statusParam === 'unfinished' || statusParam === 'finished') {
+    state.completionFilter = statusParam;
+  }
 
   const page = Number(params.get('page'));
   if (Number.isInteger(page) && page >= 1) state.page = page;
@@ -581,6 +615,7 @@ function syncUrl({ push = false } = {}) {
     if (state.sort !== 'release-desc') params.set('sort', state.sort);
     if (state.viewMode !== 'grid') params.set('view', state.viewMode);
     if (state.favOnly) params.set('fav', '1');
+    if (state.completionFilter) params.set('status', state.completionFilter);
     if (state.page > 1) params.set('page', String(state.page));
   }
 
@@ -642,6 +677,7 @@ function applyTranslations() {
   });
 
   renderLiveStatusPill();
+  renderMyPlayerBar();
   if (state.mapsLoaded) populateTileFilterOptions();
 }
 
@@ -919,6 +955,154 @@ function renderCategoryStrip() {
   strip.innerHTML = html;
 }
 
+function indexMyPlayerTypes(data) {
+  const map = new Map();
+  let finishedCount = 0;
+  const typesObj = data?.types && typeof data.types === 'object' ? data.types : {};
+  for (const catObj of Object.values(typesObj)) {
+    const mapsObj = catObj?.maps && typeof catObj.maps === 'object' ? catObj.maps : {};
+    for (const [mapName, info] of Object.entries(mapsObj)) {
+      const finishes = Number(info?.finishes || 0);
+      if (finishes > 0) finishedCount += 1;
+      map.set(mapName.toLowerCase(), {
+        finishes,
+        time: Number(info?.time || 0),
+        rank: Number(info?.rank || 0),
+        totalFinishes: Number(info?.total_finishes || 0),
+        points: Number(info?.points || 0),
+      });
+    }
+  }
+  state.myPlayerFinishes = map;
+  state.myPlayerFinishedCount = finishedCount;
+  state.myPlayerLoaded = true;
+  state.myPlayerLoading = false;
+  state.myPlayerError = false;
+}
+
+function renderMyPlayerBar() {
+  const bar = $('myPlayerBar');
+  if (!bar) return;
+
+  if (!state.myPlayerName) {
+    bar.innerHTML = `
+      <div class="my-player-left">
+        <span class="my-player-label">${escapeHtml(tr('myProfileLabel'))}</span>
+        <div class="my-player-form">
+          <input type="text" id="myPlayerInput" class="input" autocomplete="off" spellcheck="false" placeholder="${escapeAttr(tr('myProfilePlaceholder'))}" />
+          <button type="button" class="btn btn-primary btn-sm" id="myPlayerSaveBtn">${escapeHtml(tr('myProfileSave'))}</button>
+        </div>
+      </div>
+      <span class="my-player-hint">${escapeHtml(tr('myProfileNeedHint'))}</span>
+    `;
+    return;
+  }
+
+  let statusHtml = '';
+  if (state.myPlayerLoading) {
+    statusHtml = `<span class="my-player-hint">${escapeHtml(tr('myProfileLoading'))}</span>`;
+  } else if (state.myPlayerError) {
+    statusHtml = `<span class="my-player-hint">${escapeHtml(tr('myProfileError'))}</span>`;
+  } else if (state.myPlayerLoaded) {
+    const total = state.officialMapsByLower.size || state.myPlayerFinishes.size || state.maps.length;
+    const locale = state.lang === 'tr' ? 'tr-TR' : 'en-US';
+    statusHtml = `<span class="my-player-hint tabular">${escapeHtml(
+      tr('myProfileProgress', {
+        done: state.myPlayerFinishedCount.toLocaleString(locale),
+        total: total.toLocaleString(locale),
+      })
+    )}</span>`;
+  }
+
+  bar.innerHTML = `
+    <div class="my-player-left">
+      <span class="my-player-label">${escapeHtml(tr('myProfileLabel'))}</span>
+      <button type="button" class="my-player-chip" data-open-player="${escapeAttr(state.myPlayerName)}">
+        ${icons.check(12)}
+        <span>${escapeHtml(state.myPlayerName)}</span>
+      </button>
+      ${statusHtml}
+    </div>
+    <button type="button" class="btn btn-sm" id="myPlayerClearBtn">${icons.x(12)}<span>${escapeHtml(tr('myProfileUnlink'))}</span></button>
+  `;
+}
+
+async function loadMyPlayerProgress(name) {
+  const clean = String(name || '').trim();
+  if (!clean) return;
+  const reqId = ++state.myPlayerReqId;
+  state.myPlayerLoading = true;
+  state.myPlayerError = false;
+  renderMyPlayerBar();
+
+  try {
+    const data = await fetchPlayerProfile(clean);
+    if (reqId !== state.myPlayerReqId) return;
+    if (data?.player) {
+      state.myPlayerName = data.player;
+      writeString(STORAGE_KEYS.myPlayer, state.myPlayerName);
+    }
+    indexMyPlayerTypes(data);
+    renderMyPlayerBar();
+    if (state.mapsLoaded) {
+      applyMapFilters();
+      if (state.tab === 'maps') renderMapsContent();
+    }
+    if (state.tab === 'players' && state.activePlayerData) renderPlayerView();
+  } catch {
+    if (reqId !== state.myPlayerReqId) return;
+    state.myPlayerLoading = false;
+    state.myPlayerLoaded = false;
+    state.myPlayerError = true;
+    renderMyPlayerBar();
+  }
+}
+
+function setMyPlayer(name, { silent = false } = {}) {
+  const clean = String(name || '').trim();
+  if (!clean) return;
+  state.myPlayerName = clean;
+  writeString(STORAGE_KEYS.myPlayer, clean);
+  if (!silent) showToast(tr('myProfileSavedToast', { name: clean }));
+
+  if (
+    state.activePlayerData &&
+    state.activePlayerData.player &&
+    state.activePlayerData.player.toLowerCase() === clean.toLowerCase() &&
+    state.activePlayerData.types
+  ) {
+    state.myPlayerReqId += 1;
+    indexMyPlayerTypes(state.activePlayerData);
+    renderMyPlayerBar();
+    if (state.mapsLoaded) {
+      applyMapFilters();
+      if (state.tab === 'maps') renderMapsContent();
+    }
+    if (state.tab === 'players') renderPlayerView();
+  } else {
+    loadMyPlayerProgress(clean);
+  }
+}
+
+function clearMyPlayer() {
+  state.myPlayerReqId += 1;
+  state.myPlayerName = '';
+  state.myPlayerFinishes = new Map();
+  state.myPlayerLoaded = false;
+  state.myPlayerLoading = false;
+  state.myPlayerError = false;
+  state.myPlayerFinishedCount = 0;
+  state.completionFilter = '';
+  writeString(STORAGE_KEYS.myPlayer, '');
+  showToast(tr('myProfileClearedToast'));
+  renderMyPlayerBar();
+  if (state.mapsLoaded) {
+    applyMapFilters();
+    renderMapsContent();
+  }
+  if (state.tab === 'players' && state.activePlayerData) renderPlayerView();
+}
+
 function applyMapFilters() {
   const allMaps = getCombinedMaps();
   state.combinedMaps = allMaps;
@@ -929,6 +1113,7 @@ function applyMapFilters() {
   const diff = state.difficulty === '' ? null : Number(state.difficulty);
   const tileFilter = state.tile;
   const favOnly = state.favOnly;
+  const completionFilter = state.myPlayerName ? state.completionFilter : '';
 
   const filtered = allMaps.filter((m) => {
     if (favOnly && !isMapFavorited(m.name)) return false;
@@ -938,6 +1123,13 @@ function applyMapFilters() {
     }
     if (tileFilter && !(Array.isArray(m.tiles) && m.tiles.includes(tileFilter))) {
       return false;
+    }
+    if (completionFilter && state.myPlayerLoaded) {
+      if (m.source !== 'ddnet') return false;
+      const entry = state.myPlayerFinishes.get(m.name.toLowerCase());
+      const finishes = entry ? entry.finishes : 0;
+      if (completionFilter === 'unfinished' && finishes > 0) return false;
+      if (completionFilter === 'finished' && finishes <= 0) return false;
     }
     if (mapperFilter && !(m.mapper || '').toLowerCase().includes(mapperFilter)) return false;
     if (q) {
@@ -978,6 +1170,16 @@ function applyMapFilters() {
         const ap = a.points ?? -1;
         const bp = b.points ?? -1;
         return bp - ap || (b.difficulty ?? -1) - (a.difficulty ?? -1) || a.name.localeCompare(b.name);
+      }
+      case 'finishes-desc': {
+        const ae = state.myPlayerFinishes.get(a.name.toLowerCase());
+        const be = state.myPlayerFinishes.get(b.name.toLowerCase());
+        const at = ae ? ae.totalFinishes : -1;
+        const bt = be ? be.totalFinishes : -1;
+        if (bt !== at) return bt - at;
+        const ad = a.difficulty ?? 99;
+        const bd = b.difficulty ?? 99;
+        return ad - bd || (a.points ?? 9999) - (b.points ?? 9999) || a.name.localeCompare(b.name);
       }
       case 'release-desc':
       default: {
@@ -1063,6 +1265,15 @@ function renderMetaBar() {
       )} ${icons.x(12)}</button>`
     );
   }
+  if (state.myPlayerName && state.completionFilter) {
+    const labelKey =
+      state.completionFilter === 'unfinished' ? 'filterStatusUnfinished' : 'filterStatusFinished';
+    tags.push(
+      `<button type="button" class="filter-tag" data-clear-filter="completion">${escapeHtml(
+        tr(labelKey)
+      )} ${icons.x(12)}</button>`
+    );
+  }
   if (tags.length > 0) {
     tags.push(
       `<button type="button" class="filter-reset" data-clear-filter="all">${escapeHtml(
@@ -1092,13 +1303,20 @@ function renderMapsContent({ pushUrl = false } = {}) {
   const drawerCount =
     (state.difficulty !== '' ? 1 : 0) +
     (state.tile ? 1 : 0) +
-    (state.sort !== 'release-desc' ? 1 : 0);
+    (state.sort !== 'release-desc' ? 1 : 0) +
+    (state.myPlayerName && state.completionFilter ? 1 : 0);
   $('mapsFilterCountBadge').textContent = String(drawerCount);
   $('mapsFilterCountBadge').classList.toggle('hidden', drawerCount === 0);
   $('mapsFiltersToggleBtn').classList.toggle('active', state.mapsFiltersOpen || drawerCount > 0);
   $('mapsFiltersToggleBtn').setAttribute('aria-expanded', String(state.mapsFiltersOpen));
   $('mapsFilterDrawer').classList.toggle('hidden', !state.mapsFiltersOpen);
   $('tileSelect').value = state.tile;
+  const compSel = $('completionSelect');
+  if (compSel) {
+    compSel.disabled = !state.myPlayerName;
+    compSel.value = state.myPlayerName ? state.completionFilter : '';
+  }
+  renderMyPlayerBar();
   $('quickTilesRow')
     ?.querySelectorAll('[data-quick-tile]')
     .forEach((b) => b.classList.toggle('active', b.getAttribute('data-quick-tile') === state.tile));
@@ -1190,6 +1408,11 @@ function renderMapsTable(maps) {
 
     const mobileSub = m.mapper || (m.communityName ? `${m.communityName}${m.gameType ? ` · ${m.gameType}` : ''}` : m.gameType || '');
     const dlUrl = getMapDownloadUrl(m);
+    const myEntry = isOfficial && state.myPlayerLoaded ? state.myPlayerFinishes.get(m.name.toLowerCase()) : null;
+    const doneHtml =
+      myEntry && myEntry.finishes > 0
+        ? `<span class="done-badge" title="${escapeAttr(tr('finishedByYou', { time: formatTime(myEntry.time) }))}">${icons.check(11)}</span>`
+        : '';
 
     return `<tr>
       <td class="col-fav">
@@ -1203,6 +1426,7 @@ function renderMapsTable(maps) {
           <div class="map-cell-text">
             <div class="map-cell-title">
               <a href="/map/${encodeURIComponent(m.name)}" class="map-name-btn" data-open-map="${escapeAttr(m.name)}">${escapeHtml(m.name)}</a>
+              ${doneHtml}
               ${recent ? `<span class="new-tag">${escapeHtml(tr('newBadge'))}</span>` : ''}
               ${m.livePlayers > 0 ? `<span class="live-badge tabular"><span class="live-dot" aria-hidden="true"></span>${m.livePlayers}</span>` : ''}
             </div>
@@ -1249,6 +1473,12 @@ function renderMapsGrid(maps) {
         </div>`;
 
     const leftBadges = [];
+    const myEntry = isOfficial && state.myPlayerLoaded ? state.myPlayerFinishes.get(m.name.toLowerCase()) : null;
+    if (myEntry && myEntry.finishes > 0) {
+      leftBadges.push(
+        `<span class="done-badge" title="${escapeAttr(tr('finishedByYou', { time: formatTime(myEntry.time) }))}">${icons.check(11)}</span>`
+      );
+    }
     if (recent) leftBadges.push(`<span class="new-tag">${escapeHtml(tr('newBadge'))}</span>`);
     if (m.livePlayers > 0) {
       leftBadges.push(
@@ -1720,7 +1950,25 @@ function updateMapModalDynamicSections(base, detail, isLoading, hasError) {
   const biggestTeam = detail?.biggest_team;
 
   if (statsEl) {
-    statsEl.innerHTML = `<div class="stats-grid-4">
+    let personalBannerHtml = '';
+    if (state.myPlayerName && state.myPlayerLoaded) {
+      const myEntry = state.myPlayerFinishes.get(base.name.toLowerCase());
+      if (myEntry && myEntry.finishes > 0) {
+        const rankPart = myEntry.rank > 0 ? tr('modalPersonalRankPart', { rank: myEntry.rank.toLocaleString() }) : '';
+        const text = `${tr('modalPersonalFinished', {
+          name: state.myPlayerName,
+          time: formatTime(myEntry.time),
+          count: myEntry.finishes,
+        })}${rankPart}`;
+        personalBannerHtml = `<div class="modal-personal-banner finished">${icons.check(14)}<span>${escapeHtml(text)}</span></div>`;
+      } else {
+        personalBannerHtml = `<div class="modal-personal-banner">${icons.clock(14)}<span>${escapeHtml(
+          tr('modalPersonalUnfinished', { name: state.myPlayerName })
+        )}</span></div>`;
+      }
+    }
+
+    statsEl.innerHTML = `${personalBannerHtml}<div class="stats-grid-4">
       <div class="metric-box"><div class="metric-label">${escapeHtml(tr('mapDetailStatsPoints'))}</div><div class="metric-value">${points > 0 ? escapeHtml(String(points)) : '—'}</div></div>
       <div class="metric-box"><div class="metric-label">${escapeHtml(tr('mapDetailStatsFinishers'))}</div><div class="metric-value">${finishersCount !== undefined ? escapeHtml(finishersCount.toLocaleString()) : '—'}</div></div>
       <div class="metric-box"><div class="metric-label">${escapeHtml(tr('mapDetailStatsFinishes'))}</div><div class="metric-value">${finishesCount !== undefined ? escapeHtml(finishesCount.toLocaleString()) : '—'}</div></div>
@@ -2593,6 +2841,7 @@ function renderPlayerView() {
   const isOnline = Boolean(net?.online && Array.isArray(net.sessions) && net.sessions.length > 0);
   const liveSession = isOnline ? net.sessions[0] : null;
   const isFav = state.playerFavs.some((n) => n.toLowerCase() === name.toLowerCase());
+  const isMyProfile = Boolean(state.myPlayerName && state.myPlayerName.toLowerCase() === name.toLowerCase());
   const globalRank = d.points?.rank;
 
   const onlineBannerHtml = liveSession
@@ -2771,6 +3020,10 @@ function renderPlayerView() {
           ${isOnline ? `<span class="live-badge"><span class="live-dot" aria-hidden="true"></span>${escapeHtml(tr('playerOnlineBadge'))}</span>` : ''}
         </div>
         <div class="profile-actions">
+          <button type="button" class="btn btn-sm btn-toggle${isMyProfile ? ' active' : ''}" data-set-my-player="${escapeAttr(name)}">
+            ${icons.check(14)}
+            <span>${escapeHtml(isMyProfile ? tr('myProfileActiveBtn') : tr('myProfileSetBtn'))}</span>
+          </button>
           <button type="button" class="btn btn-sm btn-toggle${isFav ? ' active' : ''}" data-fav-player="${escapeAttr(name)}">
             ${isFav ? icons.starFilled(14) : icons.star(14)}
             <span>${escapeHtml(isFav ? tr('playerRemoveFav') : tr('playerAddFav'))}</span>
@@ -2919,11 +3172,13 @@ function bindEvents() {
     state.tile = '';
     state.mapper = '';
     state.favOnly = false;
+    state.completionFilter = '';
     state.sort = 'release-desc';
     state.page = 1;
     $('mapSearch').value = '';
     $('difficultySelect').value = '';
     $('tileSelect').value = '';
+    if ($('completionSelect')) $('completionSelect').value = '';
     $('sortSelect').value = 'release-desc';
     if (!$('mapModal').classList.contains('hidden')) {
       closeMapModal({ push: false });
@@ -3085,6 +3340,20 @@ function bindEvents() {
     renderMapsContent();
   });
 
+  $('completionSelect')?.addEventListener('change', (e) => {
+    state.completionFilter = e.target.value;
+    state.page = 1;
+    applyMapFilters();
+    renderMapsContent();
+  });
+
+  $('mapsFilterDrawer').addEventListener('keydown', (e) => {
+    if (e.target && e.target.id === 'myPlayerInput' && e.key === 'Enter') {
+      e.preventDefault();
+      setMyPlayer(e.target.value);
+    }
+  });
+
   $('favOnlyBtn').addEventListener('click', () => {
     state.favOnly = !state.favOnly;
     state.page = 1;
@@ -3151,10 +3420,12 @@ function bindEvents() {
     state.tile = '';
     state.mapper = '';
     state.favOnly = false;
+    state.completionFilter = '';
     state.page = 1;
     $('mapSearch').value = '';
     $('difficultySelect').value = '';
     $('tileSelect').value = '';
+    if ($('completionSelect')) $('completionSelect').value = '';
     applyMapFilters();
     renderMapsContent();
   });
@@ -3334,6 +3605,10 @@ function bindEvents() {
       }
       if (which === 'mapper' || which === 'all') state.mapper = '';
       if (which === 'fav' || which === 'all') state.favOnly = false;
+      if (which === 'completion' || which === 'all') {
+        state.completionFilter = '';
+        if ($('completionSelect')) $('completionSelect').value = '';
+      }
       state.page = 1;
       applyMapFilters();
       renderMapsContent();
@@ -3586,6 +3861,28 @@ function bindEvents() {
       return;
     }
 
+    const myPlayerBtn = target.closest('[data-set-my-player]');
+    if (myPlayerBtn) {
+      const targetPlayer = myPlayerBtn.getAttribute('data-set-my-player') || '';
+      if (state.myPlayerName && state.myPlayerName.toLowerCase() === targetPlayer.toLowerCase()) {
+        clearMyPlayer();
+      } else {
+        setMyPlayer(targetPlayer);
+      }
+      return;
+    }
+
+    if (target.closest('#myPlayerSaveBtn')) {
+      const val = $('myPlayerInput')?.value || '';
+      setMyPlayer(val);
+      return;
+    }
+
+    if (target.closest('#myPlayerClearBtn')) {
+      clearMyPlayer();
+      return;
+    }
+
     if (target.closest('#toggleFinishesBtn')) {
       state.showAllFinishes = !state.showAllFinishes;
       renderPlayerView();
@@ -3658,6 +3955,7 @@ function bindEvents() {
     $('mapSearch').value = state.search;
     $('difficultySelect').value = state.difficulty;
     $('tileSelect').value = state.tile;
+    if ($('completionSelect')) $('completionSelect').value = state.completionFilter;
     $('sortSelect').value = state.sort;
     $('navMaps').classList.toggle('active', state.tab === 'maps');
     $('navServers').classList.toggle('active', state.tab === 'servers');
@@ -3701,10 +3999,12 @@ function init() {
   $('mapSearch').value = state.search;
   $('difficultySelect').value = state.difficulty;
   $('sortSelect').value = state.sort;
+  if ($('completionSelect')) $('completionSelect').value = state.myPlayerName ? state.completionFilter : '';
   $('pageSizeSelect').value = String(state.pageSize);
   $('serverSearch').value = state.serverSearch;
   $('serverRegionSelect').value = state.serverRegion;
   populateTileFilterOptions();
+  renderMyPlayerBar();
   if (state.activePlayerName) {
     $('playerSearch').value = state.activePlayerName;
     $('playerSearchClear').classList.remove('hidden');
@@ -3715,6 +4015,9 @@ function init() {
   loadMapCatalog();
   loadOnlineData();
   loadServersData();
+  if (state.myPlayerName) {
+    loadMyPlayerProgress(state.myPlayerName);
+  }
 }
 
 init();

@@ -48,7 +48,7 @@
 <link rel="preconnect" href="https://fonts.googleapis.com" />
 <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
 <link href="https://fonts.googleapis.com/css2?family=Plus+Jakarta+Sans:wght@400;500;600;700&family=JetBrains+Mono:wght@400;500&display=swap" rel="stylesheet" />
-<link rel="stylesheet" href="/assets/styles.css?v=20261125b" />
+<link rel="stylesheet" href="/assets/styles.css?v=20261126m1" />
 </head>
 <body>
   <header class="topbar">
@@ -148,6 +148,7 @@
                 <option value="diff-asc" data-i18n="sortDiffAsc">Easy → Hard</option>
                 <option value="diff-desc" data-i18n="sortDiffDesc">Hard → Easy</option>
                 <option value="points-desc" data-i18n="sortPointsDesc">Most Points</option>
+                <option value="finishes-desc" data-i18n="sortFinishesDesc">Most Finished (Easiest)</option>
               </select>
             </label>
 
@@ -155,6 +156,15 @@
               <span class="filter-field-label" data-i18n="filterTileHeading">Mechanic / Tile</span>
               <select id="tileSelect" class="select" aria-label="Mechanic">
                 <option value="" data-i18n="allTiles">All mechanics</option>
+              </select>
+            </label>
+
+            <label class="filter-field">
+              <span class="filter-field-label" data-i18n="filterCompletionHeading">My Status</span>
+              <select id="completionSelect" class="select" aria-label="Completion status">
+                <option value="" data-i18n="completionAll">All maps</option>
+                <option value="unfinished" data-i18n="completionUnfinished">Unfinished only</option>
+                <option value="finished" data-i18n="completionFinished">Finished only</option>
               </select>
             </label>
 
@@ -166,6 +176,8 @@
               </button>
             </div>
           </div>
+
+          <div class="my-player-bar" id="myPlayerBar"></div>
 
           <div class="quick-tiles-wrap">
             <span class="quick-tiles-label" data-i18n="popularTilesLabel">Popular mechanics</span>
@@ -424,6 +436,6 @@
 
   <div class="toast" id="toast" role="status" aria-live="polite"></div>
 
-  <script type="module" src="/assets/app.js?v=20261125b"></script>
+  <script type="module" src="/assets/app.js?v=20261126m1"></script>
 </body>
 </html>
