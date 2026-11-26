@@ -301,6 +301,11 @@ export const DICT = {
     skinEmoteSurprise: 'Şaşkın',
     skinEmoteBlink: 'Göz Kırp',
     skinResetEyeBtn: 'Gözü Sıfırla',
+    playlistsBtnLabel: 'Listeler',
+    playlistsBtnTitle: 'Paylaşılabilir harita listeleri',
+    playlistModalTitle: 'Harita Listeleri (Playlists)',
+    playlistAddBtn: '+ Listeye Ekle',
+    exportPlayerCardBtn: 'Kart PNG İndir',
   },
   en: {
     brand: 'DDNet Archive',
@@ -604,6 +609,11 @@ export const DICT = {
     skinEmoteSurprise: 'Surprise',
     skinEmoteBlink: 'Blink',
     skinResetEyeBtn: 'Center Eyes',
+    playlistsBtnLabel: 'Playlists',
+    playlistsBtnTitle: 'Shareable map playlists',
+    playlistModalTitle: 'Map Playlists',
+    playlistAddBtn: '+ Playlist',
+    exportPlayerCardBtn: 'Save Card PNG',
   },
 };
 

@@ -1,5 +1,5 @@
-import { escapeAttr, escapeHtml, t } from './i18n.js?v=20261126m4';
-import { TILES_LIST, getTileInfo } from './tiles.js?v=20261126m4';
+import { escapeAttr, escapeHtml, t } from './i18n.js?v=20261126m5';
+import { TILES_LIST, getTileInfo } from './tiles.js?v=20261126m5';
 
 export const BUILDER_KEYS = [
   'r',
@@ -327,7 +327,7 @@ export function renderMechanicsGridHtml({ lang, icons, tileCounts, search = '', 
       const countText = c.mechMapsCount.replace('{n}', count.toLocaleString());
       return `<div class="mech-card" data-mech-id="${escapeAttr(tile.id)}">
         <div class="mech-card-head">
-          <img src="${escapeAttr(info.icon)}" alt="${escapeAttr(info.name)}" width="28" height="28" loading="lazy" />
+          <img src="${escapeAttr(info.iconUrl)}" alt="${escapeAttr(info.name)}" width="28" height="28" loading="lazy" />
           <div class="mech-card-titles">
             <strong>${escapeHtml(info.name)}</strong>
             <div class="mech-card-badges">

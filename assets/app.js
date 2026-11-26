@@ -1,4 +1,4 @@
-import { icons } from './icons.js?v=20261126m4';
+import { icons } from './icons.js?v=20261126m5';
 import {
   detectInitialLang,
   escapeAttr,
@@ -11,7 +11,7 @@ import {
   isRecentRelease,
   parseReleaseMs,
   t,
-} from './i18n.js?v=20261126m4';
+} from './i18n.js?v=20261126m5';
 import {
   fetchMapDetail,
   fetchMaps,
@@ -20,20 +20,20 @@ import {
   fetchPlayerSuggestions,
   fetchServers,
   fetchSkins,
-} from './api.js?v=20261126m4';
+} from './api.js?v=20261126m5';
 import {
   TILES_LIST,
   POPULAR_TILE_IDS,
   getTileInfo,
   normalizeTileId,
-} from './tiles.js?v=20261126m4';
-import { GUIDE_SNIPPETS, renderGuideModalContent } from './guide.js?v=20261126m4';
+} from './tiles.js?v=20261126m5';
+import { GUIDE_SNIPPETS, renderGuideModalContent } from './guide.js?v=20261126m5';
 import {
   buildConfigLines,
   createDefaultBuilderState,
   renderMechanicsGridHtml,
-} from './builder.js?v=20261126m4';
-import { renderDuoCompareHtml } from './duo.js?v=20261126m4';
+} from './builder.js?v=20261126m5';
+import { renderDuoCompareHtml } from './duo.js?v=20261126m5';
 import {
   buildSkinConsoleCmds,
   buildSkinImageUrl,
@@ -42,7 +42,20 @@ import {
   hslToDdnetCode,
   loadSkinImage,
   renderTeeToCanvas,
-} from './tee.js?v=20261126m4';
+} from './tee.js?v=20261126m5';
+import {
+  buildPlaylistShareUrl,
+  decodePlaylistParam,
+  encodePlaylistParam,
+  exportPlayerCardPng,
+  readPlaylists,
+  renderNewReleasesStripHtml,
+  renderPlaylistBannerHtml,
+  renderPlaylistModalHtml,
+  renderSimilarMapsHtml,
+  tx,
+  writePlaylists,
+} from './extras.js?v=20261126m5';
 
 const CATEGORY_ORDER = [
   'Novice',
@@ -145,6 +158,10 @@ const state = {
 
   mapFavs: readSet(STORAGE_KEYS.mapFavs),
   mapFavMeta: readObject(STORAGE_KEYS.mapFavMeta),
+  playlists: readPlaylists(),
+  activePlaylistId: '',
+  sharedPlaylist: null,
+  newReleasesCollapsed: false,
   playerFavs: readArray(STORAGE_KEYS.playerFavs),
   playerHistory: readArray(STORAGE_KEYS.playerHistory),
 
@@ -595,6 +612,16 @@ function loadStateFromUrl() {
 
   const mapParam = params.get('map');
   if (mapParam && !state.activeMapName) state.activeMapName = mapParam.trim();
+
+  const listParam = params.get('list');
+  const decodedList = listParam ? decodePlaylistParam(listParam) : null;
+  if (decodedList) {
+    state.sharedPlaylist = decodedList;
+    state.activePlaylistId = '';
+    if (state.tab !== 'maps') state.tab = 'maps';
+  } else {
+    state.sharedPlaylist = null;
+  }
 }
 
 function updateDocumentMeta(nextPath) {
@@ -704,6 +731,8 @@ function syncUrl({ push = false } = {}) {
     if (state.viewMode !== 'grid') params.set('view', state.viewMode);
     if (state.favOnly) params.set('fav', '1');
     if (state.completionFilter) params.set('status', state.completionFilter);
+    const activePl = getActivePlaylist();
+    if (activePl) params.set('list', encodePlaylistParam(activePl));
     if (state.page > 1) params.set('page', String(state.page));
   }
 
@@ -777,6 +806,7 @@ function hydrateStaticIcons() {
   $('mapSearchClear').innerHTML = icons.x(14);
   $('mapsFiltersBtnIcon').innerHTML = icons.sliders(15);
   $('favBtnIcon').innerHTML = icons.star(15);
+  if ($('playlistsBtnIcon')) $('playlistsBtnIcon').innerHTML = icons.list(15);
   $('randomBtnIcon').innerHTML = icons.shuffle(15);
   $('viewTableBtn').innerHTML = icons.list(15);
   $('viewGridBtn').innerHTML = icons.grid(15);
@@ -799,6 +829,7 @@ function hydrateStaticIcons() {
   $('skinsPrevBtn').innerHTML = icons.chevronLeft(16);
   $('skinsNextBtn').innerHTML = icons.chevronRight(16);
   $('skinModalClose').innerHTML = icons.x(16);
+  if ($('playlistModalClose')) $('playlistModalClose').innerHTML = icons.x(16);
   $('imageLightboxClose').innerHTML = icons.x(18);
 }
 
@@ -1199,6 +1230,49 @@ function clearMyPlayer() {
   if (state.tab === 'players' && state.activePlayerData) renderPlayerView();
 }
 
+function getActivePlaylist() {
+  if (state.sharedPlaylist) return state.sharedPlaylist;
+  if (state.activePlaylistId) {
+    return state.playlists.find((p) => p.id === state.activePlaylistId) || null;
+  }
+  return null;
+}
+
+function renderPlaylistModal() {
+  const body = $('playlistModalBody');
+  if (!body) return;
+  body.innerHTML = renderPlaylistModalHtml({
+    playlists: state.playlists,
+    activePlaylistId: state.activePlaylistId,
+    favCount: state.mapFavs.size,
+    lang: state.lang,
+    icons,
+  });
+}
+
+function openPlaylistModal() {
+  renderPlaylistModal();
+  $('playlistModal')?.classList.remove('hidden');
+  syncBodyScrollLock();
+}
+
+function closePlaylistModal() {
+  $('playlistModal')?.classList.add('hidden');
+  syncBodyScrollLock();
+}
+
+function addMapToPlaylistById(playlistId, mapName) {
+  const pl = state.playlists.find((p) => p.id === playlistId);
+  if (!pl || !mapName) return;
+  if (!pl.maps.some((m) => m.toLowerCase() === mapName.toLowerCase())) {
+    pl.maps = [...pl.maps, mapName].slice(0, 50);
+    pl.updatedAt = Date.now();
+    writePlaylists(state.playlists);
+    renderMapsContent({ pushUrl: false });
+  }
+  showToast(tx(state.lang, 'playlistAddedToast', { map: mapName, list: pl.name }));
+}
+
 function applyMapFilters() {
   const allMaps = getCombinedMaps();
   state.combinedMaps = allMaps;
@@ -1210,8 +1284,11 @@ function applyMapFilters() {
   const tileFilter = state.tile;
   const favOnly = state.favOnly;
   const completionFilter = state.myPlayerName ? state.completionFilter : '';
+  const activePl = getActivePlaylist();
+  const activePlSet = activePl ? new Set(activePl.maps.map((m) => m.toLowerCase())) : null;
 
   const filtered = allMaps.filter((m) => {
+    if (activePlSet && !activePlSet.has(m.name.toLowerCase())) return false;
     if (favOnly && !isMapFavorited(m.name)) return false;
     if (cat && m.type !== cat) return false;
     if (diff !== null && (m.difficulty === null || m.difficulty === undefined || m.difficulty !== diff)) {
@@ -1393,8 +1470,57 @@ function renderMapsContent({ pushUrl = false } = {}) {
   $('favCountBadge').textContent = String(state.mapFavs.size);
   $('favOnlyBtn').classList.toggle('active', state.favOnly);
   $('favOnlyBtn').setAttribute('aria-pressed', String(state.favOnly));
+  const plBadge = $('playlistsCountBadge');
+  if (plBadge) {
+    plBadge.textContent = String(state.playlists.length);
+    plBadge.classList.toggle('hidden', state.playlists.length === 0);
+  }
+  const activePl = getActivePlaylist();
+  $('playlistsBtn')?.classList.toggle('active', Boolean(activePl));
   $('viewTableBtn').classList.toggle('active', state.viewMode === 'table');
   $('viewGridBtn').classList.toggle('active', state.viewMode === 'grid');
+
+  const plBanner = $('playlistBanner');
+  if (plBanner) {
+    if (activePl) {
+      plBanner.innerHTML = renderPlaylistBannerHtml({
+        playlist: activePl,
+        isShared: Boolean(state.sharedPlaylist && !state.activePlaylistId),
+        lang: state.lang,
+        icons,
+      });
+      plBanner.classList.remove('hidden');
+    } else {
+      plBanner.innerHTML = '';
+      plBanner.classList.add('hidden');
+    }
+  }
+
+  const stripEl = $('newReleasesStrip');
+  const isCleanHome =
+    !activePl &&
+    !state.search.trim() &&
+    !state.category &&
+    state.difficulty === '' &&
+    !state.tile &&
+    !state.mapper &&
+    !state.favOnly &&
+    !(state.myPlayerName && state.completionFilter) &&
+    state.page === 1;
+  if (stripEl) {
+    if (isCleanHome && state.mapsLoaded && state.maps.length > 0) {
+      stripEl.innerHTML = renderNewReleasesStripHtml(
+        state.maps,
+        state.lang,
+        state.newReleasesCollapsed,
+        icons
+      );
+      stripEl.classList.toggle('hidden', !stripEl.innerHTML);
+    } else {
+      stripEl.innerHTML = '';
+      stripEl.classList.add('hidden');
+    }
+  }
 
   const drawerCount =
     (state.difficulty !== '' ? 1 : 0) +
@@ -1735,6 +1861,7 @@ function syncBodyScrollLock() {
     !$('liveModal').classList.contains('hidden') ||
     !$('guideModal').classList.contains('hidden') ||
     !$('skinModal').classList.contains('hidden') ||
+    ($('playlistModal') ? !$('playlistModal').classList.contains('hidden') : false) ||
     !$('imageLightbox').classList.contains('hidden');
   if (anyOpen && !isBodyLocked) {
     lockedScrollY = window.scrollY || document.documentElement.scrollTop || 0;
@@ -1895,6 +2022,7 @@ function renderMapModalShell(base, detail = null) {
       ${hasKog ? `<a class="btn btn-sm" href="https://kog.tw/#p=maps&map=${encodeURIComponent(mapName)}" target="_blank" rel="noopener noreferrer">${icons.externalLink(14)}<span>${escapeHtml(tr('mapDetailKogBtn'))}</span></a>` : ''}
       <button type="button" class="btn btn-sm" data-copy-map="${escapeAttr(mapName)}">${icons.copy(14)}<span>${escapeHtml(tr('mapDetailCopyBtn'))}</span></button>
       <button type="button" class="btn btn-sm btn-toggle${isFav ? ' active' : ''}" data-modal-fav="${escapeAttr(mapName)}">${isFav ? icons.starFilled(14) : icons.star(14)}<span>${escapeHtml(tr('mapDetailFavBtn'))}</span></button>
+      <button type="button" class="btn btn-sm" data-toggle-map-playlist="${escapeAttr(mapName)}">${escapeHtml(tx(state.lang, 'playlistAddTo'))}</button>
     `;
   } else {
     const website = detail?.website || base.website || `https://ddnet.org/maps/${encodeURIComponent(mapName)}`;
@@ -1908,6 +2036,7 @@ function renderMapModalShell(base, detail = null) {
       <a class="btn btn-sm" href="${escapeAttr(website)}" target="_blank" rel="noopener noreferrer">${icons.externalLink(14)}<span>${escapeHtml(tr('mapDetailDdnetBtn'))}</span></a>
       <button type="button" class="btn btn-sm" data-copy-map="${escapeAttr(mapName)}">${icons.copy(14)}<span>${escapeHtml(tr('mapDetailCopyBtn'))}</span></button>
       <button type="button" class="btn btn-sm btn-toggle${isFav ? ' active' : ''}" data-modal-fav="${escapeAttr(mapName)}">${isFav ? icons.starFilled(14) : icons.star(14)}<span>${escapeHtml(tr('mapDetailFavBtn'))}</span></button>
+      <button type="button" class="btn btn-sm" data-toggle-map-playlist="${escapeAttr(mapName)}">${escapeHtml(tx(state.lang, 'playlistAddTo'))}</button>
     `;
   }
 
@@ -1922,10 +2051,12 @@ function renderMapModalShell(base, detail = null) {
     }
     <div class="modal-meta-row">${metaHtml}</div>
     <div class="modal-actions">${actionsHtml}</div>
+    <div id="mapModalPlaylistBox"></div>
     <div id="mapModalStats"></div>
     <div id="mapModalTiles"></div>
     <div id="mapModalRecords"></div>
     <div id="mapModalLiveServers"></div>
+    <div id="mapModalSimilar"></div>
   `;
 }
 
@@ -2114,6 +2245,11 @@ function updateMapModalDynamicSections(base, detail, isLoading, hasError) {
     } else {
       liveServersEl.innerHTML = '';
     }
+  }
+
+  const similarEl = $('mapModalSimilar');
+  if (similarEl) {
+    similarEl.innerHTML = renderSimilarMapsHtml(base, state.maps, state.lang);
   }
 }
 
@@ -3370,6 +3506,10 @@ function renderPlayerView() {
             ${icons.swap(14)}
             <span>${escapeHtml(tr('playerCompareWithBtn'))}</span>
           </button>
+          <button type="button" class="btn btn-sm" data-export-player-card="1">
+            ${icons.download(14)}
+            <span>${escapeHtml(tx(state.lang, 'exportPlayerCardBtn'))}</span>
+          </button>
           ${
             hasDdnet
               ? `<a class="btn btn-sm" href="https://ddnet.org/players/${encodeURIComponent(name)}/" target="_blank" rel="noopener noreferrer">
@@ -3966,6 +4106,9 @@ function bindEvents() {
     if (!$('skinModal').classList.contains('hidden') && state.activeSkinName) {
       openSkinModal(state.activeSkinName, { push: false });
     }
+    if ($('playlistModal') && !$('playlistModal').classList.contains('hidden')) {
+      renderPlaylistModal();
+    }
     if (!$('liveModal').classList.contains('hidden')) renderLiveModal();
     if (!$('guideModal').classList.contains('hidden')) renderGuideModal();
     if (!$('mapModal').classList.contains('hidden') && state.activeMapName) {
@@ -4037,6 +4180,63 @@ function bindEvents() {
   $('skinModalClose')?.addEventListener('click', () => closeSkinModal());
   $('skinModal')?.addEventListener('click', (e) => {
     if (e.target.id === 'skinModal') closeSkinModal();
+  });
+
+  $('playlistsBtn')?.addEventListener('click', () => openPlaylistModal());
+  $('playlistModalClose')?.addEventListener('click', () => closePlaylistModal());
+  $('playlistModal')?.addEventListener('click', (e) => {
+    if (e.target.id === 'playlistModal') closePlaylistModal();
+  });
+
+  $('playlistModalBody')?.addEventListener('submit', (e) => {
+    const form = e.target.closest('#playlistCreateForm');
+    if (!form) return;
+    e.preventDefault();
+    const name = ($('playlistNameInput')?.value || '').trim().slice(0, 60);
+    if (!name) return;
+    const rawMaps = ($('playlistMapsInput')?.value || '')
+      .split(',')
+      .map((s) => s.trim())
+      .filter(Boolean);
+    const includeFavs = Boolean($('playlistIncludeFavs')?.checked);
+    const combined = includeFavs ? [...rawMaps, ...Array.from(state.mapFavs)] : rawMaps;
+    const uniqueMaps = Array.from(new Set(combined)).slice(0, 50);
+    const newPl = {
+      id: `pl_${Date.now().toString(36)}_${Math.random().toString(36).slice(2, 6)}`,
+      name,
+      maps: uniqueMaps,
+      updatedAt: Date.now(),
+    };
+    state.playlists = [newPl, ...state.playlists];
+    writePlaylists(state.playlists);
+    state.activePlaylistId = newPl.id;
+    state.sharedPlaylist = null;
+    state.page = 1;
+    closePlaylistModal();
+    applyMapFilters();
+    renderMapsContent({ pushUrl: true });
+    showToast(tx(state.lang, 'playlistSavedToast', { name }));
+  });
+
+  $('mapModalBody')?.addEventListener('submit', (e) => {
+    const form = e.target.closest('#mapQuickNewPlForm');
+    if (!form) return;
+    e.preventDefault();
+    const name = ($('mapQuickPlNameInput')?.value || '').trim().slice(0, 60);
+    const mapName = form.getAttribute('data-map-name') || state.activeMapName;
+    if (!name || !mapName) return;
+    const newPl = {
+      id: `pl_${Date.now().toString(36)}_${Math.random().toString(36).slice(2, 6)}`,
+      name,
+      maps: [mapName],
+      updatedAt: Date.now(),
+    };
+    state.playlists = [newPl, ...state.playlists];
+    writePlaylists(state.playlists);
+    renderMapsContent({ pushUrl: false });
+    const box = $('mapModalPlaylistBox');
+    if (box) box.innerHTML = '';
+    showToast(tx(state.lang, 'playlistAddedToast', { map: mapName, list: name }));
   });
 
   // Skins View controls
@@ -4975,6 +5175,123 @@ function bindEvents() {
       return;
     }
 
+    if (target.closest('#toggleNewReleasesBtn')) {
+      state.newReleasesCollapsed = !state.newReleasesCollapsed;
+      renderMapsContent({ pushUrl: false });
+      return;
+    }
+
+    if (target.closest('#playlistCopyShareBtn')) {
+      const activePl = getActivePlaylist();
+      if (activePl) {
+        copyText(buildPlaylistShareUrl(activePl), tx(state.lang, 'playlistCopiedShareToast'));
+      }
+      return;
+    }
+
+    if (target.closest('#playlistSaveSharedBtn') && state.sharedPlaylist) {
+      const saved = {
+        id: `pl_${Date.now().toString(36)}`,
+        name: state.sharedPlaylist.name,
+        maps: [...state.sharedPlaylist.maps],
+        updatedAt: Date.now(),
+      };
+      state.playlists = [saved, ...state.playlists];
+      writePlaylists(state.playlists);
+      state.activePlaylistId = saved.id;
+      state.sharedPlaylist = null;
+      applyMapFilters();
+      renderMapsContent({ pushUrl: true });
+      showToast(tx(state.lang, 'playlistSavedToast', { name: saved.name }));
+      return;
+    }
+
+    if (target.closest('#playlistClearActiveBtn')) {
+      state.activePlaylistId = '';
+      state.sharedPlaylist = null;
+      state.page = 1;
+      applyMapFilters();
+      renderMapsContent({ pushUrl: true });
+      return;
+    }
+
+    const actPlBtn = target.closest('[data-activate-playlist]');
+    if (actPlBtn) {
+      state.activePlaylistId = actPlBtn.getAttribute('data-activate-playlist') || '';
+      state.sharedPlaylist = null;
+      state.page = 1;
+      closePlaylistModal();
+      switchTab('maps');
+      applyMapFilters();
+      renderMapsContent({ pushUrl: true });
+      return;
+    }
+
+    const sharePlBtn = target.closest('[data-share-playlist]');
+    if (sharePlBtn) {
+      const pid = sharePlBtn.getAttribute('data-share-playlist') || '';
+      const pl = state.playlists.find((p) => p.id === pid);
+      if (pl) copyText(buildPlaylistShareUrl(pl), tx(state.lang, 'playlistCopiedShareToast'));
+      return;
+    }
+
+    const delPlBtn = target.closest('[data-delete-playlist]');
+    if (delPlBtn) {
+      const pid = delPlBtn.getAttribute('data-delete-playlist') || '';
+      state.playlists = state.playlists.filter((p) => p.id !== pid);
+      writePlaylists(state.playlists);
+      if (state.activePlaylistId === pid) state.activePlaylistId = '';
+      renderPlaylistModal();
+      applyMapFilters();
+      renderMapsContent({ pushUrl: true });
+      return;
+    }
+
+    const toggleMapPlBtn = target.closest('[data-toggle-map-playlist]');
+    if (toggleMapPlBtn) {
+      const mapName = toggleMapPlBtn.getAttribute('data-toggle-map-playlist') || '';
+      const box = $('mapModalPlaylistBox');
+      if (!box) return;
+      if (box.innerHTML.trim()) {
+        box.innerHTML = '';
+        return;
+      }
+      box.innerHTML = `<div class="playlist-quick-popover">
+        <div style="font-size:12px;font-weight:600;">${escapeHtml(tx(state.lang, 'playlistQuickTitle'))}</div>
+        ${
+          state.playlists.length > 0
+            ? `<div class="quick-chips">
+                ${state.playlists
+                  .map(
+                    (pl) =>
+                      `<button type="button" class="quick-chip" data-quick-add-pl="${escapeAttr(pl.id)}" data-quick-add-map="${escapeAttr(mapName)}">${escapeHtml(pl.name)} (${pl.maps.length})</button>`
+                  )
+                  .join('')}
+              </div>`
+            : ''
+        }
+        <form id="mapQuickNewPlForm" data-map-name="${escapeAttr(mapName)}" style="display:flex;gap:6px;">
+          <input type="text" id="mapQuickPlNameInput" class="input" maxlength="60" placeholder="${escapeAttr(tx(state.lang, 'playlistNewQuickPlaceholder'))}" required style="flex:1;height:32px;" />
+          <button type="submit" class="btn btn-primary btn-sm">${escapeHtml(tx(state.lang, 'playlistCreateBtn'))}</button>
+        </form>
+      </div>`;
+      return;
+    }
+
+    const quickAddBtn = target.closest('[data-quick-add-pl]');
+    if (quickAddBtn) {
+      const pid = quickAddBtn.getAttribute('data-quick-add-pl') || '';
+      const mapName = quickAddBtn.getAttribute('data-quick-add-map') || '';
+      addMapToPlaylistById(pid, mapName);
+      if ($('mapModalPlaylistBox')) $('mapModalPlaylistBox').innerHTML = '';
+      return;
+    }
+
+    if (target.closest('[data-export-player-card]') && state.activePlayerData) {
+      exportPlayerCardPng(state.activePlayerData, state.lang);
+      return;
+    }
+
     if (target.closest('#toggleFinishesBtn')) {
       state.showAllFinishes = !state.showAllFinishes;
       renderPlayerView();
@@ -5005,6 +5322,10 @@ function bindEvents() {
       }
       if ($('skinModal') && !$('skinModal').classList.contains('hidden')) {
         closeSkinModal();
+        return;
+      }
+      if ($('playlistModal') && !$('playlistModal').classList.contains('hidden')) {
+        closePlaylistModal();
         return;
       }
       if (!$('mapAutocomplete').classList.contains('hidden')) {
@@ -5050,7 +5371,8 @@ function bindEvents() {
       $('mapModal').classList.contains('hidden') &&
       $('liveModal').classList.contains('hidden') &&
       $('guideModal').classList.contains('hidden') &&
-      ($('skinModal')?.classList.contains('hidden') ?? true)
+      ($('skinModal')?.classList.contains('hidden') ?? true) &&
+      ($('playlistModal')?.classList.contains('hidden') ?? true)
     ) {
       e.preventDefault();
       openRandomMap();

@@ -48,7 +48,7 @@
 <link rel="preconnect" href="https://fonts.googleapis.com" />
 <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
 <link href="https://fonts.googleapis.com/css2?family=Plus+Jakarta+Sans:wght@400;500;600;700&family=JetBrains+Mono:wght@400;500&display=swap" rel="stylesheet" />
-<link rel="stylesheet" href="/assets/styles.css?v=20261126m4" />
+<link rel="stylesheet" href="/assets/styles.css?v=20261126m5" />
 </head>
 <body>
   <header class="topbar">
@@ -115,6 +115,12 @@
               <span class="btn-icon" id="favBtnIcon"></span>
               <span data-i18n="favOnly">Favorites</span>
               <span class="count-badge" id="favCountBadge">0</span>
+            </button>
+
+            <button type="button" class="btn btn-toggle" id="playlistsBtn" data-i18n-title="playlistsBtnTitle" title="Playlists">
+              <span class="btn-icon" id="playlistsBtnIcon"></span>
+              <span data-i18n="playlistsBtnLabel">Playlists</span>
+              <span class="count-badge hidden" id="playlistsCountBadge">0</span>
             </button>
 
             <div class="segmented" role="group" aria-label="View mode">
@@ -209,6 +215,9 @@
         <div class="meta-left" id="resultsMeta"></div>
         <div class="meta-right" id="activeFilters"></div>
       </div>
+
+      <div id="playlistBanner" class="hidden"></div>
+      <div id="newReleasesStrip" class="hidden"></div>
 
       <div id="mapsSkeleton" class="skeleton-list"></div>
 
@@ -535,6 +544,17 @@
     </div>
   </div>
 
+  <!-- Playlists Modal -->
+  <div class="modal-backdrop hidden" id="playlistModal" role="dialog" aria-modal="true" aria-labelledby="playlistModalTitle">
+    <div class="modal modal-md">
+      <div class="modal-header">
+        <h2 class="modal-title" id="playlistModalTitle" data-i18n="playlistModalTitle">Map Playlists</h2>
+        <button type="button" class="icon-btn" id="playlistModalClose" data-i18n-title="closeLabel" aria-label="Close"></button>
+      </div>
+      <div class="modal-body" id="playlistModalBody"></div>
+    </div>
+  </div>
+
   <!-- Image Lightbox -->
   <div class="lightbox-backdrop hidden" id="imageLightbox" role="dialog" aria-modal="true" aria-label="Map image preview">
     <button type="button" class="icon-btn lightbox-close" id="imageLightboxClose" data-i18n-title="closeLabel" aria-label="Close"></button>
@@ -543,6 +563,6 @@
 
   <div class="toast" id="toast" role="status" aria-live="polite"></div>
 
-  <script type="module" src="/assets/app.js?v=20261126m4"></script>
+  <script type="module" src="/assets/app.js?v=20261126m5"></script>
 </body>
 </html>

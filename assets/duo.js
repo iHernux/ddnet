@@ -5,7 +5,7 @@ import {
   formatTime,
   parseReleaseMs,
   t,
-} from './i18n.js?v=20261126m4';
+} from './i18n.js?v=20261126m5';
 
 function extractTypesMap(data) {
   const out = new Map();
