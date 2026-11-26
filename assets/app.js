@@ -1,4 +1,4 @@
-import { icons } from './icons.js?v=20261126m1';
+import { icons } from './icons.js?v=20261126m2';
 import {
   detectInitialLang,
   escapeAttr,
@@ -11,7 +11,7 @@ import {
   isRecentRelease,
   parseReleaseMs,
   t,
-} from './i18n.js?v=20261126m1';
+} from './i18n.js?v=20261126m2';
 import {
   fetchMapDetail,
   fetchMaps,
@@ -19,14 +19,15 @@ import {
   fetchPlayerProfile,
   fetchPlayerSuggestions,
   fetchServers,
-} from './api.js?v=20261126m1';
+} from './api.js?v=20261126m2';
 import {
   TILES_LIST,
   POPULAR_TILE_IDS,
   getTileInfo,
   normalizeTileId,
-} from './tiles.js?v=20261126m1';
-import { GUIDE_SNIPPETS, renderGuideModalContent } from './guide.js?v=20261126m1';
+} from './tiles.js?v=20261126m2';
+import { GUIDE_SNIPPETS, renderGuideModalContent } from './guide.js?v=20261126m2';
+import { renderDuoCompareHtml } from './duo.js?v=20261126m2';
 
 const CATEGORY_ORDER = [
   'Novice',
@@ -150,6 +151,19 @@ const state = {
   playerLoading: false,
   playerError: null,
   showAllFinishes: false,
+  playerSubMode: 'profile',
+  duoPlayerA: '',
+  duoPlayerB: '',
+  duoDataA: null,
+  duoDataB: null,
+  duoLoading: false,
+  duoError: '',
+  duoTab: 'both-unfin',
+  duoCategory: '',
+  duoDifficulty: '',
+  duoSort: 'finishes-desc',
+  duoLimit: 40,
+  duoReqId: 0,
 
   onlineData: null,
   onlineError: false,
@@ -435,6 +449,9 @@ function isMapFavorited(mapName) {
 function loadStateFromUrl() {
   state.tab = 'maps';
   state.activePlayerName = '';
+  state.playerSubMode = 'profile';
+  state.duoPlayerA = '';
+  state.duoPlayerB = '';
   state.search = '';
   state.category = '';
   state.difficulty = '';
@@ -468,13 +485,20 @@ function loadStateFromUrl() {
   const params = new URLSearchParams(window.location.search);
   const tab = params.get('tab');
   const player = params.get('player');
-  if (tab === 'players' || player) {
+  const duoA = (params.get('duoA') || '').trim();
+  const duoB = (params.get('duoB') || '').trim();
+  if (tab === 'players' || player || duoA || duoB) {
     state.tab = 'players';
   } else if (tab === 'servers') {
     state.tab = 'servers';
   }
   if (player) {
     state.activePlayerName = player.trim();
+  }
+  if (state.tab === 'players' && (params.get('mode') === 'duo' || duoA || duoB)) {
+    state.playerSubMode = 'duo';
+    if (duoA) state.duoPlayerA = duoA;
+    if (duoB) state.duoPlayerB = duoB;
   }
 
   if (state.tab === 'servers') {
@@ -550,6 +574,9 @@ function updateDocumentMeta(nextPath) {
       ? `${commName} Live Servers – DDNet Archive`
       : 'Live DDNet, KoG & Community Servers – DDNet Archive';
     canonicalPath = '/';
+  } else if (state.tab === 'players' && state.playerSubMode === 'duo' && state.duoPlayerA && state.duoPlayerB) {
+    nextTitle = `${state.duoPlayerA} vs ${state.duoPlayerB} – DDNet Archive`;
+    canonicalPath = '/';
   } else if (state.tab === 'players' && state.activePlayerName) {
     nextTitle = `${state.activePlayerName} – DDNet Player Stats | DDNet Archive`;
     canonicalPath = '/';
@@ -593,7 +620,13 @@ function syncUrl({ push = false } = {}) {
   } else if (state.tab === 'players') {
     nextPath = '/';
     params.set('tab', 'players');
-    if (state.activePlayerName) params.set('player', state.activePlayerName);
+    if (state.playerSubMode === 'duo') {
+      params.set('mode', 'duo');
+      if (state.duoPlayerA) params.set('duoA', state.duoPlayerA);
+      if (state.duoPlayerB) params.set('duoB', state.duoPlayerB);
+    } else if (state.activePlayerName) {
+      params.set('player', state.activePlayerName);
+    }
   } else if (state.tab === 'servers') {
     nextPath = '/';
     params.set('tab', 'servers');
@@ -700,6 +733,9 @@ function hydrateStaticIcons() {
   $('serverRefreshBtn').innerHTML = icons.refresh(15);
   $('playerSearchIcon').innerHTML = icons.search(15);
   $('playerSearchClear').innerHTML = icons.x(14);
+  $('duoSearchIconA').innerHTML = icons.search(15);
+  $('duoSearchIconB').innerHTML = icons.search(15);
+  $('duoSwapBtn').innerHTML = icons.swap(15);
   $('mapModalClose').innerHTML = icons.x(16);
   $('liveModalClose').innerHTML = icons.x(16);
   $('guideModalClose').innerHTML = icons.x(16);
@@ -1563,6 +1599,10 @@ async function loadMapCatalog({ forceRefresh = false } = {}) {
 
     if (state.serversLoaded && state.tab === 'servers') {
       renderServersView({ pushUrl: false });
+    }
+
+    if (state.tab === 'players' && state.playerSubMode === 'duo' && state.duoDataA && state.duoDataB) {
+      renderDuoView();
     }
 
     if (state.activeMapName && $('mapModal').classList.contains('hidden')) {
@@ -2800,7 +2840,239 @@ function renderNetworkActivitySection(network) {
   </div>`;
 }
 
+function setPlayerSubMode(mode, { push = true } = {}) {
+  const next = mode === 'duo' ? 'duo' : 'profile';
+  state.playerSubMode = next;
+  if (next === 'duo' && !state.duoPlayerA && state.myPlayerName) {
+    state.duoPlayerA = state.myPlayerName;
+    if ($('duoInputA') && !$('duoInputA').value) $('duoInputA').value = state.myPlayerName;
+  }
+  renderPlayerView();
+  if (
+    next === 'duo' &&
+    state.duoPlayerA &&
+    state.duoPlayerB &&
+    !state.duoLoading &&
+    (!state.duoDataA || !state.duoDataB)
+  ) {
+    runDuoCompare(state.duoPlayerA, state.duoPlayerB);
+  }
+  syncUrl({ push });
+}
+
+function renderDuoQuickLists() {
+  const box = $('duoQuickLists');
+  if (!box) return;
+  const seen = new Set();
+  const names = [];
+  const pushName = (n) => {
+    const clean = String(n || '').trim();
+    const key = clean.toLowerCase();
+    if (!clean || seen.has(key)) return;
+    seen.add(key);
+    names.push(clean);
+  };
+  if (state.myPlayerName) pushName(state.myPlayerName);
+  state.playerFavs.forEach(pushName);
+  state.playerHistory.forEach(pushName);
+  const subset = names.slice(0, 8);
+  if (subset.length === 0) {
+    box.innerHTML = '';
+    return;
+  }
+  box.innerHTML = `<div class="quick-group">
+    <span class="quick-label">${escapeHtml(tr('duoQuickFillHint'))}</span>
+    <div class="quick-chips">
+      ${subset
+        .map(
+          (name) =>
+            `<button type="button" class="quick-chip" data-duo-fill="${escapeAttr(name)}">${escapeHtml(name)}</button>`
+        )
+        .join('')}
+    </div>
+  </div>`;
+}
+
+function renderDuoView() {
+  renderDuoQuickLists();
+  const container = $('duoResults');
+  if (!container) return;
+
+  if (state.duoLoading) {
+    container.innerHTML = `<div class="skeleton-list">${Array.from({ length: 5 }, () => '<div class="skeleton-row"></div>').join('')}</div>`;
+    return;
+  }
+
+  if (state.duoError === 'need_two') {
+    container.innerHTML = `<div class="state-box">
+      <div class="state-title">${escapeHtml(tr('duoEmptyTitle'))}</div>
+      <div class="state-hint">${escapeHtml(tr('duoNeedTwoPlayers'))}</div>
+    </div>`;
+    return;
+  }
+
+  if (state.duoError === 'not_found' || state.duoError === 'error') {
+    container.innerHTML = `<div class="state-box">
+      <div class="state-title">${escapeHtml(state.duoError === 'not_found' ? tr('playerNotFoundTitle') : tr('playerErrorTitle'))}</div>
+      <div class="state-hint">${escapeHtml(tr('duoEmptyHint'))}</div>
+    </div>`;
+    return;
+  }
+
+  if (!state.duoDataA || !state.duoDataB) {
+    container.innerHTML = `<div class="state-box">
+      <div class="state-title">${escapeHtml(tr('duoEmptyTitle'))}</div>
+      <div class="state-hint">${escapeHtml(tr('duoEmptyHint'))}</div>
+    </div>`;
+    return;
+  }
+
+  container.innerHTML = renderDuoCompareHtml({
+    dataA: state.duoDataA,
+    dataB: state.duoDataB,
+    officialMapsByLower: state.officialMapsByLower,
+    categoryOrder: CATEGORY_ORDER,
+    serversList: state.serversData?.servers || [],
+    duoState: {
+      playerA: state.duoPlayerA,
+      playerB: state.duoPlayerB,
+      tab: state.duoTab,
+      category: state.duoCategory,
+      difficulty: state.duoDifficulty,
+      sort: state.duoSort,
+      limit: state.duoLimit,
+    },
+    lang: state.lang,
+    icons,
+    safeConnectTarget,
+  });
+}
+
+async function runDuoCompare(nameA, nameB) {
+  const a = String(nameA || '').trim();
+  const b = String(nameB || '').trim();
+  state.duoPlayerA = a;
+  state.duoPlayerB = b;
+  if ($('duoInputA')) $('duoInputA').value = a;
+  if ($('duoInputB')) $('duoInputB').value = b;
+  $('duoAcA')?.classList.add('hidden');
+  $('duoAcB')?.classList.add('hidden');
+
+  if (!a || !b || a.toLowerCase() === b.toLowerCase()) {
+    state.duoLoading = false;
+    state.duoError = 'need_two';
+    syncUrl();
+    renderDuoView();
+    return;
+  }
+
+  const reqId = ++state.duoReqId;
+  state.duoLoading = true;
+  state.duoError = '';
+  state.duoLimit = 40;
+  syncUrl();
+  renderDuoView();
+
+  try {
+    const [dataA, dataB] = await Promise.all([fetchPlayerProfile(a), fetchPlayerProfile(b)]);
+    if (reqId !== state.duoReqId) return;
+    state.duoDataA = dataA;
+    state.duoDataB = dataB;
+    state.duoPlayerA = dataA.player || a;
+    state.duoPlayerB = dataB.player || b;
+    if ($('duoInputA')) $('duoInputA').value = state.duoPlayerA;
+    if ($('duoInputB')) $('duoInputB').value = state.duoPlayerB;
+    state.duoLoading = false;
+    addPlayerHistory(state.duoPlayerA);
+    addPlayerHistory(state.duoPlayerB);
+    syncUrl();
+    renderDuoView();
+  } catch (err) {
+    if (reqId !== state.duoReqId) return;
+    state.duoDataA = null;
+    state.duoDataB = null;
+    state.duoLoading = false;
+    state.duoError = err?.status === 404 ? 'not_found' : 'error';
+    renderDuoView();
+  }
+}
+
+function openDuoCompare(nameA, nameB = '') {
+  const cleanA = String(nameA || '').trim();
+  let cleanB = String(nameB || '').trim();
+  if (!cleanB && state.myPlayerName && state.myPlayerName.toLowerCase() !== cleanA.toLowerCase()) {
+    cleanB = state.myPlayerName;
+  }
+  state.playerSubMode = 'duo';
+  state.duoPlayerA = cleanA;
+  state.duoPlayerB = cleanB;
+  state.duoDataA = null;
+  state.duoDataB = null;
+  state.duoError = '';
+  if ($('duoInputA')) $('duoInputA').value = cleanA;
+  if ($('duoInputB')) $('duoInputB').value = cleanB;
+  switchTab('players');
+  if (cleanA && cleanB) {
+    runDuoCompare(cleanA, cleanB);
+  } else {
+    setTimeout(() => $('duoInputB')?.focus(), 30);
+  }
+}
+
+function bindDuoAutocomplete(inputId, boxId, side) {
+  const input = $(inputId);
+  const box = $(boxId);
+  if (!input || !box) return;
+  let timer = null;
+  input.addEventListener('input', (e) => {
+    const val = e.target.value;
+    clearTimeout(timer);
+    if (val.trim().length < 2) {
+      box.classList.add('hidden');
+      return;
+    }
+    timer = setTimeout(async () => {
+      try {
+        const items = await fetchPlayerSuggestions(val.trim());
+        if (!items.length) {
+          box.classList.add('hidden');
+          return;
+        }
+        box.innerHTML = items
+          .map((item) => {
+            const subParts = [];
+            if (item.online) {
+              subParts.push(`<span class="live-inline-pill"><span class="live-dot" aria-hidden="true"></span>${escapeHtml(item.currentMap || tr('playerOnlineBadge'))}</span>`);
+            }
+            if (item.points > 0) {
+              subParts.push(escapeHtml(tr('pointsUnit', { n: item.points.toLocaleString() })));
+            }
+            return `<button type="button" class="dropdown-item" data-duo-ac="${escapeAttr(item.name)}" data-duo-side="${side}" role="option">
+              <span class="dropdown-main">${escapeHtml(item.name)}</span>
+              <span class="dropdown-sub tabular">${subParts.join(' · ')}</span>
+            </button>`;
+          })
+          .join('');
+        box.classList.remove('hidden');
+      } catch {
+        // Ignore aborted suggestion calls
+      }
+    }, 220);
+  });
+}
+
 function renderPlayerView() {
+  const isDuo = state.playerSubMode === 'duo';
+  $('playerModeProfileBtn')?.classList.toggle('active', !isDuo);
+  $('playerModeDuoBtn')?.classList.toggle('active', isDuo);
+  $('playerSingleSection')?.classList.toggle('hidden', isDuo);
+  $('playerDuoSection')?.classList.toggle('hidden', !isDuo);
+
+  if (isDuo) {
+    renderDuoView();
+    return;
+  }
+
   renderPlayerQuickLists();
   const container = $('playerProfile');
   if (!container) return;
@@ -3028,6 +3300,10 @@ function renderPlayerView() {
             ${isFav ? icons.starFilled(14) : icons.star(14)}
             <span>${escapeHtml(isFav ? tr('playerRemoveFav') : tr('playerAddFav'))}</span>
           </button>
+          <button type="button" class="btn btn-sm" data-compare-player="${escapeAttr(name)}">
+            ${icons.swap(14)}
+            <span>${escapeHtml(tr('playerCompareWithBtn'))}</span>
+          </button>
           ${
             hasDdnet
               ? `<a class="btn btn-sm" href="https://ddnet.org/players/${encodeURIComponent(name)}/" target="_blank" rel="noopener noreferrer">
@@ -3065,7 +3341,16 @@ function switchTab(tabName) {
 
   if (state.tab === 'players') {
     renderPlayerView();
-    if (state.activePlayerName && !state.activePlayerData && !state.playerLoading) {
+    if (state.playerSubMode === 'duo') {
+      if (
+        state.duoPlayerA &&
+        state.duoPlayerB &&
+        (!state.duoDataA || !state.duoDataB) &&
+        !state.duoLoading
+      ) {
+        runDuoCompare(state.duoPlayerA, state.duoPlayerB);
+      }
+    } else if (state.activePlayerName && !state.activePlayerData && !state.playerLoading) {
       openPlayerProfile(state.activePlayerName);
     }
   } else if (state.tab === 'servers') {
@@ -3563,6 +3848,47 @@ function bindEvents() {
     $('playerSearch').focus();
   });
 
+  $('playerModeProfileBtn')?.addEventListener('click', () => setPlayerSubMode('profile'));
+  $('playerModeDuoBtn')?.addEventListener('click', () => setPlayerSubMode('duo'));
+
+  $('duoForm')?.addEventListener('submit', (e) => {
+    e.preventDefault();
+    runDuoCompare($('duoInputA')?.value || '', $('duoInputB')?.value || '');
+  });
+
+  $('duoSwapBtn')?.addEventListener('click', () => {
+    const a = $('duoInputA')?.value || state.duoPlayerA;
+    const b = $('duoInputB')?.value || state.duoPlayerB;
+    if ($('duoInputA')) $('duoInputA').value = b;
+    if ($('duoInputB')) $('duoInputB').value = a;
+    if (a.trim() && b.trim()) {
+      runDuoCompare(b, a);
+    } else {
+      state.duoPlayerA = b;
+      state.duoPlayerB = a;
+      syncUrl();
+    }
+  });
+
+  bindDuoAutocomplete('duoInputA', 'duoAcA', 'a');
+  bindDuoAutocomplete('duoInputB', 'duoAcB', 'b');
+
+  $('duoResults')?.addEventListener('change', (e) => {
+    const id = e.target?.id;
+    if (id === 'duoCatSelect') {
+      state.duoCategory = e.target.value;
+      state.duoLimit = 40;
+      renderDuoView();
+    } else if (id === 'duoDiffSelect') {
+      state.duoDifficulty = e.target.value;
+      state.duoLimit = 40;
+      renderDuoView();
+    } else if (id === 'duoSortSelect') {
+      state.duoSort = e.target.value;
+      renderDuoView();
+    }
+  });
+
   // Global click delegation
   document.addEventListener('click', (e) => {
     const target = e.target;
@@ -3573,6 +3899,12 @@ function bindEvents() {
     }
     if (!target.closest('#playerSearch') && !target.closest('#playerAutocomplete')) {
       $('playerAutocomplete').classList.add('hidden');
+    }
+    if (!target.closest('#duoInputA') && !target.closest('#duoAcA')) {
+      $('duoAcA')?.classList.add('hidden');
+    }
+    if (!target.closest('#duoInputB') && !target.closest('#duoAcB')) {
+      $('duoAcB')?.classList.add('hidden');
     }
 
     const catBtn = target.closest('[data-cat-filter]');
@@ -3838,8 +4170,63 @@ function bindEvents() {
       if (!$('mapModal').classList.contains('hidden')) {
         closeMapModal();
       }
+      state.playerSubMode = 'profile';
       switchTab('players');
       openPlayerProfile(name);
+      return;
+    }
+
+    const comparePlayerBtn = target.closest('[data-compare-player]');
+    if (comparePlayerBtn) {
+      openDuoCompare(comparePlayerBtn.getAttribute('data-compare-player'));
+      return;
+    }
+
+    const duoAcBtn = target.closest('[data-duo-ac]');
+    if (duoAcBtn) {
+      const picked = duoAcBtn.getAttribute('data-duo-ac') || '';
+      const side = duoAcBtn.getAttribute('data-duo-side');
+      if (side === 'a') {
+        if ($('duoInputA')) $('duoInputA').value = picked;
+        $('duoAcA')?.classList.add('hidden');
+        if ($('duoInputB')?.value?.trim()) runDuoCompare(picked, $('duoInputB').value);
+      } else {
+        if ($('duoInputB')) $('duoInputB').value = picked;
+        $('duoAcB')?.classList.add('hidden');
+        if ($('duoInputA')?.value?.trim()) runDuoCompare($('duoInputA').value, picked);
+      }
+      return;
+    }
+
+    const duoFillBtn = target.closest('[data-duo-fill]');
+    if (duoFillBtn) {
+      const picked = duoFillBtn.getAttribute('data-duo-fill') || '';
+      const valA = ($('duoInputA')?.value || '').trim();
+      const valB = ($('duoInputB')?.value || '').trim();
+      if (!valA) {
+        $('duoInputA').value = picked;
+      } else if (!valB || valA.toLowerCase() !== picked.toLowerCase()) {
+        $('duoInputB').value = picked;
+      }
+      const nextA = ($('duoInputA')?.value || '').trim();
+      const nextB = ($('duoInputB')?.value || '').trim();
+      if (nextA && nextB && nextA.toLowerCase() !== nextB.toLowerCase()) {
+        runDuoCompare(nextA, nextB);
+      }
+      return;
+    }
+
+    const duoTabBtn = target.closest('[data-duo-tab]');
+    if (duoTabBtn) {
+      state.duoTab = duoTabBtn.getAttribute('data-duo-tab') || 'both-unfin';
+      state.duoLimit = 40;
+      renderDuoView();
+      return;
+    }
+
+    if (target.closest('#duoShowMoreBtn')) {
+      state.duoLimit += 40;
+      renderDuoView();
       return;
     }
 
@@ -3919,6 +4306,14 @@ function bindEvents() {
         $('playerAutocomplete').classList.add('hidden');
         return;
       }
+      if ($('duoAcA') && !$('duoAcA').classList.contains('hidden')) {
+        $('duoAcA').classList.add('hidden');
+        return;
+      }
+      if ($('duoAcB') && !$('duoAcB').classList.contains('hidden')) {
+        $('duoAcB').classList.add('hidden');
+        return;
+      }
       if (isTyping) {
         e.target.blur();
       }
@@ -3931,7 +4326,9 @@ function bindEvents() {
       e.preventDefault();
       const input =
         state.tab === 'players'
-          ? $('playerSearch')
+          ? state.playerSubMode === 'duo'
+            ? $('duoInputA')
+            : $('playerSearch')
           : state.tab === 'servers'
             ? $('serverSearch')
             : $('mapSearch');
@@ -3981,8 +4378,14 @@ function bindEvents() {
     }
 
     if (state.tab === 'players') {
+      if ($('duoInputA')) $('duoInputA').value = state.duoPlayerA;
+      if ($('duoInputB')) $('duoInputB').value = state.duoPlayerB;
       renderPlayerView();
-      if (state.activePlayerName && state.activePlayerData?.player !== state.activePlayerName) {
+      if (state.playerSubMode === 'duo') {
+        if (state.duoPlayerA && state.duoPlayerB) {
+          runDuoCompare(state.duoPlayerA, state.duoPlayerB);
+        }
+      } else if (state.activePlayerName && state.activePlayerData?.player !== state.activePlayerName) {
         openPlayerProfile(state.activePlayerName);
       }
     }
@@ -4009,6 +4412,8 @@ function init() {
     $('playerSearch').value = state.activePlayerName;
     $('playerSearchClear').classList.remove('hidden');
   }
+  if (state.duoPlayerA && $('duoInputA')) $('duoInputA').value = state.duoPlayerA;
+  if (state.duoPlayerB && $('duoInputB')) $('duoInputB').value = state.duoPlayerB;
 
   bindEvents();
   switchTab(state.tab);

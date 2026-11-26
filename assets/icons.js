@@ -132,4 +132,9 @@ export const icons = {
       '<polyline points="4 17 10 11 4 5"/><line x1="12" y1="19" x2="20" y2="19"/>',
       s
     ),
+  swap: (s = 15) =>
+    svg(
+      '<path d="M8 3 4 7l4 4"/><path d="M4 7h16"/><path d="m16 21 4-4-4-4"/><path d="M20 17H4"/>',
+      s
+    ),
 };

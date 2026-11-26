@@ -48,7 +48,7 @@
 <link rel="preconnect" href="https://fonts.googleapis.com" />
 <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
 <link href="https://fonts.googleapis.com/css2?family=Plus+Jakarta+Sans:wght@400;500;600;700&family=JetBrains+Mono:wght@400;500&display=swap" rel="stylesheet" />
-<link rel="stylesheet" href="/assets/styles.css?v=20261126m1" />
+<link rel="stylesheet" href="/assets/styles.css?v=20261126m2" />
 </head>
 <body>
   <header class="topbar">
@@ -352,35 +352,65 @@
 
     <!-- Players View -->
     <section id="playersView" class="hidden" aria-label="Players">
-      <div class="player-search-panel">
-        <div class="search-wrap search-wrap-lg">
-          <span class="search-leading" id="playerSearchIcon"></span>
-          <input
-            type="search"
-            id="playerSearch"
-            class="input search-input"
-            autocomplete="off"
-            spellcheck="false"
-            data-i18n-placeholder="playerSearchPlaceholder"
-            placeholder="Enter player name (e.g. BannZay)…"
-          />
-          <button type="button" class="clear-btn hidden" id="playerSearchClear" data-i18n-title="clearSearch" aria-label="Clear"></button>
-          <div class="dropdown hidden" id="playerAutocomplete" role="listbox"></div>
-        </div>
-
-        <div class="quick-lists" id="playerQuickLists">
-          <div class="quick-group hidden" id="playerFavSection">
-            <span class="quick-label" data-i18n="playerFavoritesTitle">Favorite Players</span>
-            <div class="quick-chips" id="playerFavList"></div>
-          </div>
-          <div class="quick-group hidden" id="playerHistorySection">
-            <span class="quick-label" data-i18n="playerHistoryTitle">Recent Searches</span>
-            <div class="quick-chips" id="playerHistoryList"></div>
-          </div>
+      <div class="players-mode-bar">
+        <div class="segmented segmented-text" role="group" aria-label="Player mode">
+          <button type="button" class="seg-btn active" id="playerModeProfileBtn" data-i18n="playerModeProfile">Profile</button>
+          <button type="button" class="seg-btn" id="playerModeDuoBtn" data-i18n="playerModeDuo">Duo Compare</button>
         </div>
       </div>
 
-      <div id="playerProfile"></div>
+      <div id="playerSingleSection">
+        <div class="player-search-panel">
+          <div class="search-wrap search-wrap-lg">
+            <span class="search-leading" id="playerSearchIcon"></span>
+            <input
+              type="search"
+              id="playerSearch"
+              class="input search-input"
+              autocomplete="off"
+              spellcheck="false"
+              data-i18n-placeholder="playerSearchPlaceholder"
+              placeholder="Enter player name (e.g. BannZay)…"
+            />
+            <button type="button" class="clear-btn hidden" id="playerSearchClear" data-i18n-title="clearSearch" aria-label="Clear"></button>
+            <div class="dropdown hidden" id="playerAutocomplete" role="listbox"></div>
+          </div>
+
+          <div class="quick-lists" id="playerQuickLists">
+            <div class="quick-group hidden" id="playerFavSection">
+              <span class="quick-label" data-i18n="playerFavoritesTitle">Favorite Players</span>
+              <div class="quick-chips" id="playerFavList"></div>
+            </div>
+            <div class="quick-group hidden" id="playerHistorySection">
+              <span class="quick-label" data-i18n="playerHistoryTitle">Recent Searches</span>
+              <div class="quick-chips" id="playerHistoryList"></div>
+            </div>
+          </div>
+        </div>
+
+        <div id="playerProfile"></div>
+      </div>
+
+      <div id="playerDuoSection" class="hidden">
+        <div class="duo-panel">
+          <form class="duo-inputs-row" id="duoForm">
+            <div class="search-wrap">
+              <span class="search-leading" id="duoSearchIconA"></span>
+              <input type="search" id="duoInputA" class="input search-input" autocomplete="off" spellcheck="false" data-i18n-placeholder="duoPlaceholderA" placeholder="Player A (e.g. BannZay)…" />
+              <div class="dropdown hidden" id="duoAcA" role="listbox"></div>
+            </div>
+            <button type="button" class="btn btn-icon-only" id="duoSwapBtn" data-i18n-title="duoSwapTitle" title="Swap players" aria-label="Swap players"></button>
+            <div class="search-wrap">
+              <span class="search-leading" id="duoSearchIconB"></span>
+              <input type="search" id="duoInputB" class="input search-input" autocomplete="off" spellcheck="false" data-i18n-placeholder="duoPlaceholderB" placeholder="Player B (e.g. murpi)…" />
+              <div class="dropdown hidden" id="duoAcB" role="listbox"></div>
+            </div>
+            <button type="submit" class="btn btn-primary" id="duoCompareBtn" data-i18n="duoCompareBtn">Compare</button>
+          </form>
+          <div class="quick-lists" id="duoQuickLists"></div>
+        </div>
+        <div id="duoResults"></div>
+      </div>
     </section>
   </main>
 
@@ -436,6 +466,6 @@
 
   <div class="toast" id="toast" role="status" aria-live="polite"></div>
 
-  <script type="module" src="/assets/app.js?v=20261126m1"></script>
+  <script type="module" src="/assets/app.js?v=20261126m2"></script>
 </body>
 </html>
