@@ -4,7 +4,7 @@ import {
   formatDate,
   formatDuration,
   parseReleaseMs,
-} from './i18n.js?v=20261126';
+} from './i18n.js?v=20261126a';
 
 export const STORAGE_KEY_PLAYLISTS = 'ddnet_playlists_v1';
 
