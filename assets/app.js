@@ -1,4 +1,4 @@
-import { icons } from './icons.js?v=20261126m5';
+import { icons } from './icons.js?v=20261126';
 import {
   detectInitialLang,
   escapeAttr,
@@ -11,7 +11,7 @@ import {
   isRecentRelease,
   parseReleaseMs,
   t,
-} from './i18n.js?v=20261126m5';
+} from './i18n.js?v=20261126';
 import {
   fetchMapDetail,
   fetchMaps,
@@ -20,20 +20,20 @@ import {
   fetchPlayerSuggestions,
   fetchServers,
   fetchSkins,
-} from './api.js?v=20261126m5';
+} from './api.js?v=20261126';
 import {
   TILES_LIST,
   POPULAR_TILE_IDS,
   getTileInfo,
   normalizeTileId,
-} from './tiles.js?v=20261126m5';
-import { GUIDE_SNIPPETS, renderGuideModalContent } from './guide.js?v=20261126m5';
+} from './tiles.js?v=20261126';
+import { GUIDE_SNIPPETS, renderGuideModalContent } from './guide.js?v=20261126';
 import {
   buildConfigLines,
   createDefaultBuilderState,
   renderMechanicsGridHtml,
-} from './builder.js?v=20261126m5';
-import { renderDuoCompareHtml } from './duo.js?v=20261126m5';
+} from './builder.js?v=20261126';
+import { renderDuoCompareHtml } from './duo.js?v=20261126';
 import {
   buildSkinConsoleCmds,
   buildSkinImageUrl,
@@ -42,7 +42,7 @@ import {
   hslToDdnetCode,
   loadSkinImage,
   renderTeeToCanvas,
-} from './tee.js?v=20261126m5';
+} from './tee.js?v=20261126';
 import {
   buildPlaylistShareUrl,
   decodePlaylistParam,
@@ -55,7 +55,7 @@ import {
   renderSimilarMapsHtml,
   tx,
   writePlaylists,
-} from './extras.js?v=20261126m5';
+} from './extras.js?v=20261126';
 
 const CATEGORY_ORDER = [
   'Novice',
