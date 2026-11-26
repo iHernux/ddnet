@@ -1,4 +1,4 @@
-import { escapeAttr, escapeHtml, t } from './i18n.js?v=20261126m2';
+import { escapeAttr, escapeHtml, t } from './i18n.js?v=20261126m3';
 
 export const GUIDE_SNIPPETS = {
   // Map setup snippets

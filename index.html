@@ -48,7 +48,7 @@
 <link rel="preconnect" href="https://fonts.googleapis.com" />
 <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
 <link href="https://fonts.googleapis.com/css2?family=Plus+Jakarta+Sans:wght@400;500;600;700&family=JetBrains+Mono:wght@400;500&display=swap" rel="stylesheet" />
-<link rel="stylesheet" href="/assets/styles.css?v=20261126m2" />
+<link rel="stylesheet" href="/assets/styles.css?v=20261126m3" />
 </head>
 <body>
   <header class="topbar">
@@ -68,6 +68,7 @@
         <button type="button" class="nav-tab active" id="navMaps" data-tab="maps" data-i18n="navMaps">Maps</button>
         <button type="button" class="nav-tab" id="navServers" data-tab="servers" data-i18n="navServers">Servers</button>
         <button type="button" class="nav-tab" id="navPlayers" data-tab="players" data-i18n="navPlayers">Players</button>
+        <button type="button" class="nav-tab" id="navSkins" data-tab="skins" data-i18n="navSkins">Skins</button>
       </nav>
 
       <div class="topbar-actions">
@@ -412,6 +413,71 @@
         <div id="duoResults"></div>
       </div>
     </section>
+
+    <!-- Skins Archive View -->
+    <section id="skinsView" class="hidden" aria-label="Skins">
+      <div class="controls-panel">
+        <div class="toolbar">
+          <div class="search-wrap">
+            <span class="search-leading" id="skinSearchIcon"></span>
+            <input
+              type="search"
+              id="skinSearch"
+              class="input search-input"
+              autocomplete="off"
+              spellcheck="false"
+              data-i18n-placeholder="skinsSearchPlaceholder"
+              placeholder="Search skin name or creator…"
+            />
+            <button type="button" class="clear-btn hidden" id="skinSearchClear" data-i18n-title="clearSearch" aria-label="Clear"></button>
+          </div>
+
+          <div class="toolbar-actions">
+            <select id="skinSortSelect" class="select select-compact" aria-label="Sort skins">
+              <option value="name-asc" data-i18n="sortNameAsc">A → Z</option>
+              <option value="date-desc" data-i18n="skinsSortNewest">Newest</option>
+              <option value="uhd-desc" data-i18n="skinsSortUhd">UHD First</option>
+            </select>
+          </div>
+        </div>
+
+        <div class="category-strip" id="skinTypePills" role="tablist" aria-label="Skin types">
+          <button type="button" class="cat-pill active" data-skin-filter="all" data-i18n="skinsFilterAll">All Skins</button>
+          <button type="button" class="cat-pill" data-skin-filter="normal" data-i18n="skinsFilterOfficial">Official</button>
+          <button type="button" class="cat-pill" data-skin-filter="community" data-i18n="skinsFilterCommunity">Community</button>
+          <button type="button" class="cat-pill" data-skin-filter="uhd" data-i18n="skinsFilterUhd">UHD Only</button>
+        </div>
+      </div>
+
+      <div class="meta-bar">
+        <div class="meta-left" id="skinsMeta"></div>
+        <div class="meta-right" id="skinsActiveFilters"></div>
+      </div>
+
+      <div id="skinsSkeleton" class="skeleton-grid hidden"></div>
+
+      <div id="skinsError" class="state-box hidden">
+        <div class="state-title" data-i18n="skinsErrorTitle">Could not load skins database</div>
+        <button type="button" class="btn btn-primary" id="retrySkinsBtn" data-i18n="retryBtn">Retry</button>
+      </div>
+
+      <div id="skinsEmpty" class="state-box hidden">
+        <div class="state-title" data-i18n="emptyTitle">No skins match your filters</div>
+        <button type="button" class="btn" id="skinsEmptyClearBtn" data-i18n="clearAllFilters">Clear filters</button>
+      </div>
+
+      <div class="skins-grid hidden" id="skinsGrid"></div>
+
+      <div class="pagination-bar hidden" id="skinsPagination">
+        <span class="page-summary" id="skinsPageSummary"></span>
+        <div class="page-controls">
+          <div class="page-buttons">
+            <button type="button" class="btn btn-icon-only" id="skinsPrevBtn" aria-label="Previous page"></button>
+            <button type="button" class="btn btn-icon-only" id="skinsNextBtn" aria-label="Next page"></button>
+          </div>
+        </div>
+      </div>
+    </section>
   </main>
 
   <footer class="footer">
@@ -458,6 +524,17 @@
     </div>
   </div>
 
+  <!-- Skin Detail & Live Tee Customizer Modal -->
+  <div class="modal-backdrop hidden" id="skinModal" role="dialog" aria-modal="true" aria-labelledby="skinModalTitle">
+    <div class="modal modal-lg">
+      <div class="modal-header">
+        <h2 class="modal-title" id="skinModalTitle">Skin Studio</h2>
+        <button type="button" class="icon-btn" id="skinModalClose" data-i18n-title="closeLabel" aria-label="Close"></button>
+      </div>
+      <div class="modal-body" id="skinModalBody"></div>
+    </div>
+  </div>
+
   <!-- Image Lightbox -->
   <div class="lightbox-backdrop hidden" id="imageLightbox" role="dialog" aria-modal="true" aria-label="Map image preview">
     <button type="button" class="icon-btn lightbox-close" id="imageLightboxClose" data-i18n-title="closeLabel" aria-label="Close"></button>
@@ -466,6 +543,6 @@
 
   <div class="toast" id="toast" role="status" aria-live="polite"></div>
 
-  <script type="module" src="/assets/app.js?v=20261126m2"></script>
+  <script type="module" src="/assets/app.js?v=20261126m3"></script>
 </body>
 </html>

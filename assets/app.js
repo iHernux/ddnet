@@ -1,4 +1,4 @@
-import { icons } from './icons.js?v=20261126m2';
+import { icons } from './icons.js?v=20261126m3';
 import {
   detectInitialLang,
   escapeAttr,
@@ -11,7 +11,7 @@ import {
   isRecentRelease,
   parseReleaseMs,
   t,
-} from './i18n.js?v=20261126m2';
+} from './i18n.js?v=20261126m3';
 import {
   fetchMapDetail,
   fetchMaps,
@@ -19,15 +19,25 @@ import {
   fetchPlayerProfile,
   fetchPlayerSuggestions,
   fetchServers,
-} from './api.js?v=20261126m2';
+  fetchSkins,
+} from './api.js?v=20261126m3';
 import {
   TILES_LIST,
   POPULAR_TILE_IDS,
   getTileInfo,
   normalizeTileId,
-} from './tiles.js?v=20261126m2';
-import { GUIDE_SNIPPETS, renderGuideModalContent } from './guide.js?v=20261126m2';
-import { renderDuoCompareHtml } from './duo.js?v=20261126m2';
+} from './tiles.js?v=20261126m3';
+import { GUIDE_SNIPPETS, renderGuideModalContent } from './guide.js?v=20261126m3';
+import { renderDuoCompareHtml } from './duo.js?v=20261126m3';
+import {
+  buildSkinConsoleCmds,
+  buildSkinImageUrl,
+  ddnetCodeToHsl,
+  hexToDdnetCode,
+  hslToDdnetCode,
+  loadSkinImage,
+  renderTeeToCanvas,
+} from './tee.js?v=20261126m3';
 
 const CATEGORY_ORDER = [
   'Novice',
@@ -169,6 +179,23 @@ const state = {
   onlineError: false,
   liveModalTab: 'all',
   guideTab: 'maps',
+
+  skinsData: null,
+  skinsLoaded: false,
+  skinsLoading: false,
+  skinsError: false,
+  skinsSearch: '',
+  skinsFilter: 'all',
+  skinsSort: 'name-asc',
+  skinsPage: 1,
+  skinsPageSize: 48,
+  activeSkinName: '',
+  skinEmote: 'normal',
+  skinCustomColor: false,
+  skinBodyCode: 65408,
+  skinFeetCode: 65408,
+  skinLookX: 0.25,
+  skinLookY: 0,
 
   activeMapName: null,
   activeMapDetail: null,
@@ -487,11 +514,15 @@ function loadStateFromUrl() {
   const player = params.get('player');
   const duoA = (params.get('duoA') || '').trim();
   const duoB = (params.get('duoB') || '').trim();
-  if (tab === 'players' || player || duoA || duoB) {
+  const skinParam = (params.get('skin') || '').trim();
+  if (tab === 'skins' || skinParam) {
+    state.tab = 'skins';
+  } else if (tab === 'players' || player || duoA || duoB) {
     state.tab = 'players';
   } else if (tab === 'servers') {
     state.tab = 'servers';
   }
+  state.activeSkinName = skinParam;
   if (player) {
     state.activePlayerName = player.trim();
   }
@@ -501,7 +532,12 @@ function loadStateFromUrl() {
     if (duoB) state.duoPlayerB = duoB;
   }
 
-  if (state.tab === 'servers') {
+  if (state.tab === 'skins') {
+    const sq = params.get('q') ?? '';
+    if (sq) state.skinsSearch = sq;
+    const sf = (params.get('type') || '').trim().toLowerCase();
+    if (sf === 'normal' || sf === 'community' || sf === 'uhd') state.skinsFilter = sf;
+  } else if (state.tab === 'servers') {
     const comm = (params.get('community') || '').trim().toLowerCase();
     if (comm) state.serverCommunity = comm;
     const mode = (params.get('mode') || '').trim();
@@ -568,6 +604,11 @@ function updateDocumentMeta(nextPath) {
       nextTitle = `${state.activeMapName} – DDNet Map | DDNet Archive`;
     }
     canonicalPath = `/map/${encodeURIComponent(state.activeMapName)}`;
+  } else if (state.tab === 'skins') {
+    nextTitle = state.activeSkinName
+      ? `${state.activeSkinName} – DDNet Skins | DDNet Archive`
+      : 'Official DDNet Skins Archive & Customizer – DDNet Archive';
+    canonicalPath = '/';
   } else if (state.tab === 'servers') {
     const commName = state.serverCommunity ? getCommunityInfo(state.serverCommunity).name : '';
     nextTitle = commName
@@ -627,6 +668,12 @@ function syncUrl({ push = false } = {}) {
     } else if (state.activePlayerName) {
       params.set('player', state.activePlayerName);
     }
+  } else if (state.tab === 'skins') {
+    nextPath = '/';
+    params.set('tab', 'skins');
+    if (state.skinsFilter !== 'all') params.set('type', state.skinsFilter);
+    if (state.skinsSearch.trim()) params.set('q', state.skinsSearch.trim());
+    if (state.activeSkinName) params.set('skin', state.activeSkinName);
   } else if (state.tab === 'servers') {
     nextPath = '/';
     params.set('tab', 'servers');
@@ -739,6 +786,11 @@ function hydrateStaticIcons() {
   $('mapModalClose').innerHTML = icons.x(16);
   $('liveModalClose').innerHTML = icons.x(16);
   $('guideModalClose').innerHTML = icons.x(16);
+  $('skinSearchIcon').innerHTML = icons.search(15);
+  $('skinSearchClear').innerHTML = icons.x(14);
+  $('skinsPrevBtn').innerHTML = icons.chevronLeft(16);
+  $('skinsNextBtn').innerHTML = icons.chevronRight(16);
+  $('skinModalClose').innerHTML = icons.x(16);
   $('imageLightboxClose').innerHTML = icons.x(18);
 }
 
@@ -1674,6 +1726,7 @@ function syncBodyScrollLock() {
     !$('mapModal').classList.contains('hidden') ||
     !$('liveModal').classList.contains('hidden') ||
     !$('guideModal').classList.contains('hidden') ||
+    !$('skinModal').classList.contains('hidden') ||
     !$('imageLightbox').classList.contains('hidden');
   if (anyOpen && !isBodyLocked) {
     lockedScrollY = window.scrollY || document.documentElement.scrollTop || 0;
@@ -3326,20 +3379,412 @@ function renderPlayerView() {
   `;
 }
 
+// Skins Archive & Live Tee Studio
+let skinCardObserver = null;
+let activeSkinPreviewImg = null;
+
+async function paintSkinCardCanvas(canvas) {
+  const name = canvas.dataset.skinName;
+  if (!name || canvas.dataset.painted === '1') return;
+  canvas.dataset.painted = '1';
+  const type = canvas.dataset.skinType || 'normal';
+  const uhd = canvas.dataset.skinUhd === '1';
+  try {
+    const img = await loadSkinImage(buildSkinImageUrl({ name, type, uhd }, { uhd: false }));
+    if (!canvas.isConnected) return;
+    renderTeeToCanvas(canvas, img, { size: 96, customColor: false, lookX: 0.22, lookY: 0 });
+  } catch {
+    canvas.dataset.painted = 'err';
+  }
+}
+
+function observeSkinCanvases(grid) {
+  if (skinCardObserver) {
+    skinCardObserver.disconnect();
+    skinCardObserver = null;
+  }
+  const canvases = Array.from(grid.querySelectorAll('.skin-canvas'));
+  if (canvases.length === 0) return;
+
+  // Paint the first visible fold immediately so grid renders crisply on first frame
+  canvases.slice(0, 12).forEach((c) => paintSkinCardCanvas(c));
+
+  if (typeof IntersectionObserver === 'function') {
+    skinCardObserver = new IntersectionObserver(
+      (entries) => {
+        for (const entry of entries) {
+          if (entry.isIntersecting) {
+            paintSkinCardCanvas(entry.target);
+            skinCardObserver?.unobserve(entry.target);
+          }
+        }
+      },
+      { rootMargin: '240px 0px' }
+    );
+    canvases.slice(12).forEach((c) => skinCardObserver.observe(c));
+  } else {
+    canvases.slice(12).forEach((c) => paintSkinCardCanvas(c));
+  }
+}
+
+function getFilteredSortedSkins() {
+  const all = state.skinsData?.skins || [];
+  const q = state.skinsSearch.trim().toLowerCase();
+  const list = all.filter((s) => {
+    if (state.skinsFilter === 'normal' && s.type !== 'normal') return false;
+    if (state.skinsFilter === 'community' && s.type !== 'community') return false;
+    if (state.skinsFilter === 'uhd' && !s.uhd) return false;
+    if (q) {
+      const n = s.name.toLowerCase();
+      const cr = (s.creator || '').toLowerCase();
+      const pk = (s.skinpack || '').toLowerCase();
+      if (!n.includes(q) && !cr.includes(q) && !pk.includes(q)) return false;
+    }
+    return true;
+  });
+
+  list.sort((a, b) => {
+    if (state.skinsSort === 'date-desc') {
+      return (b.date || '').localeCompare(a.date || '') || a.name.localeCompare(b.name);
+    }
+    if (state.skinsSort === 'uhd-desc') {
+      return Number(b.uhd) - Number(a.uhd) || a.name.localeCompare(b.name);
+    }
+    if (q) {
+      const al = a.name.toLowerCase();
+      const bl = b.name.toLowerCase();
+      const ar = al === q ? 0 : al.startsWith(q) ? 1 : 2;
+      const br = bl === q ? 0 : bl.startsWith(q) ? 1 : 2;
+      if (ar !== br) return ar - br;
+    }
+    return a.name.localeCompare(b.name);
+  });
+
+  return list;
+}
+
+async function loadSkinsCatalog({ forceRefresh = false } = {}) {
+  if (state.skinsLoading) return;
+  state.skinsLoading = true;
+  state.skinsError = false;
+  if (!state.skinsLoaded) {
+    const sk = $('skinsSkeleton');
+    if (sk) {
+      sk.innerHTML = Array.from({ length: 12 }, () => '<div class="skeleton-card"></div>').join('');
+      sk.classList.remove('hidden');
+    }
+    $('skinsGrid')?.classList.add('hidden');
+    $('skinsError')?.classList.add('hidden');
+    $('skinsEmpty')?.classList.add('hidden');
+  }
+  try {
+    const data = await fetchSkins({ forceRefresh });
+    state.skinsData = data;
+    state.skinsLoaded = true;
+    state.skinsLoading = false;
+    if (state.tab === 'skins') {
+      renderSkinsView({ pushUrl: false });
+    }
+    if (state.activeSkinName && $('skinModal')?.classList.contains('hidden')) {
+      openSkinModal(state.activeSkinName, { push: false });
+    }
+  } catch {
+    state.skinsLoading = false;
+    state.skinsError = true;
+    $('skinsSkeleton')?.classList.add('hidden');
+    if (state.tab === 'skins') {
+      renderSkinsView({ pushUrl: false });
+    }
+  }
+}
+
+function renderSkinsView({ pushUrl = false } = {}) {
+  const sk = $('skinsSkeleton');
+  const errEl = $('skinsError');
+  const emptyEl = $('skinsEmpty');
+  const grid = $('skinsGrid');
+  const pag = $('skinsPagination');
+  const meta = $('skinsMeta');
+
+  if ($('skinSearch')) $('skinSearch').value = state.skinsSearch;
+  $('skinSearchClear')?.classList.toggle('hidden', !state.skinsSearch);
+  if ($('skinSortSelect')) $('skinSortSelect').value = state.skinsSort;
+  $('skinTypePills')
+    ?.querySelectorAll('[data-skin-filter]')
+    .forEach((b) => b.classList.toggle('active', b.getAttribute('data-skin-filter') === state.skinsFilter));
+
+  if (state.skinsLoading && !state.skinsLoaded) {
+    sk?.classList.remove('hidden');
+    return;
+  }
+  sk?.classList.add('hidden');
+
+  if (state.skinsError && !state.skinsLoaded) {
+    errEl?.classList.remove('hidden');
+    grid?.classList.add('hidden');
+    pag?.classList.add('hidden');
+    return;
+  }
+  errEl?.classList.add('hidden');
+
+  const allTotal = state.skinsData?.skins?.length || 0;
+  const filtered = getFilteredSortedSkins();
+  const totalPages = Math.max(1, Math.ceil(filtered.length / state.skinsPageSize));
+  if (state.skinsPage > totalPages) state.skinsPage = totalPages;
+
+  if (meta) {
+    meta.textContent = tr('skinsCountSummary', {
+      shown: filtered.length.toLocaleString(),
+      total: allTotal.toLocaleString(),
+    });
+  }
+
+  if (filtered.length === 0) {
+    emptyEl?.classList.remove('hidden');
+    grid?.classList.add('hidden');
+    pag?.classList.add('hidden');
+    syncUrl({ push: pushUrl });
+    return;
+  }
+  emptyEl?.classList.add('hidden');
+
+  const start = (state.skinsPage - 1) * state.skinsPageSize;
+  const pageItems = filtered.slice(start, start + state.skinsPageSize);
+
+  grid.innerHTML = pageItems
+    .map((s) => {
+      const creatorLabel = s.creator || tr('skinsCreatorUnknown');
+      const typeLabel = s.type === 'community' ? tr('skinTypeCommunity') : tr('skinTypeOfficial');
+      return `<button type="button" class="skin-card" data-open-skin="${escapeAttr(s.name)}">
+        <div class="skin-canvas-wrap">
+          <canvas class="skin-canvas" width="96" height="96" data-skin-name="${escapeAttr(s.name)}" data-skin-type="${escapeAttr(s.type)}" data-skin-uhd="${s.uhd ? '1' : '0'}" aria-label="${escapeAttr(s.name)}"></canvas>
+        </div>
+        <div class="skin-card-name" title="${escapeAttr(s.name)}">${escapeHtml(s.name)}</div>
+        <div class="skin-card-meta">
+          <span class="skin-badge">${escapeHtml(typeLabel)}</span>
+          ${s.uhd ? '<span class="skin-badge uhd">UHD</span>' : ''}
+          <span>${escapeHtml(creatorLabel)}</span>
+        </div>
+      </button>`;
+    })
+    .join('');
+
+  grid.classList.remove('hidden');
+  observeSkinCanvases(grid);
+
+  if (pag && totalPages > 1) {
+    pag.classList.remove('hidden');
+    if ($('skinsPageSummary')) {
+      $('skinsPageSummary').textContent = tr('pageSummary', {
+        page: state.skinsPage,
+        pages: totalPages,
+      });
+    }
+    if ($('skinsPrevBtn')) $('skinsPrevBtn').disabled = state.skinsPage <= 1;
+    if ($('skinsNextBtn')) $('skinsNextBtn').disabled = state.skinsPage >= totalPages;
+  } else {
+    pag?.classList.add('hidden');
+  }
+
+  syncUrl({ push: pushUrl });
+}
+
+function updateSkinPreviewCanvas() {
+  const canvas = $('skinPreviewCanvas');
+  if (canvas && activeSkinPreviewImg) {
+    renderTeeToCanvas(canvas, activeSkinPreviewImg, {
+      size: 200,
+      customColor: state.skinCustomColor,
+      bodyCode: state.skinBodyCode,
+      feetCode: state.skinFeetCode,
+      emote: state.skinEmote,
+      lookX: state.skinLookX,
+      lookY: state.skinLookY,
+    });
+  }
+  const cmdEl = $('skinConsolePreview');
+  if (cmdEl && state.activeSkinName) {
+    cmdEl.textContent = buildSkinConsoleCmds(
+      state.activeSkinName,
+      state.skinCustomColor,
+      state.skinBodyCode,
+      state.skinFeetCode
+    );
+  }
+}
+
+function renderColorControlGroup(part, code) {
+  const info = ddnetCodeToHsl(code);
+  const label = part === 'body' ? tr('skinBodyColorLabel') : tr('skinFeetColorLabel');
+  return `<div class="skin-color-group" data-color-part="${part}">
+    <div class="skin-color-head">
+      <span>${escapeHtml(label)}</span>
+      <div class="color-code-row">
+        <input type="color" class="color-picker-input" data-color-picker="${part}" value="${escapeAttr(info.hex)}" aria-label="${escapeAttr(label)}" />
+        <label class="muted" style="font-size:11px;">${escapeHtml(tr('skinDdnetCodeLabel'))}:</label>
+        <input type="number" min="0" max="16777215" class="color-code-input" data-color-code="${part}" value="${info.code}" aria-label="${escapeAttr(label)} code" />
+      </div>
+    </div>
+    <div class="hsl-sliders">
+      <label class="hsl-slider-item"><span>H (${info.hDeg}°)</span><input type="range" min="0" max="359" value="${info.hDeg}" data-hsl-h="${part}" /></label>
+      <label class="hsl-slider-item"><span>S (${info.sPct}%)</span><input type="range" min="0" max="100" value="${info.sPct}" data-hsl-s="${part}" /></label>
+      <label class="hsl-slider-item"><span>L (${info.lPct}%)</span><input type="range" min="50" max="100" value="${info.lPct}" data-hsl-l="${part}" /></label>
+    </div>
+  </div>`;
+}
+
+function syncColorPartInputs(part, code) {
+  const info = ddnetCodeToHsl(code);
+  const group = $('skinModalBody')?.querySelector(`[data-color-part="${part}"]`);
+  if (!group) return;
+  const picker = group.querySelector(`[data-color-picker="${part}"]`);
+  const codeInp = group.querySelector(`[data-color-code="${part}"]`);
+  const hInp = group.querySelector(`[data-hsl-h="${part}"]`);
+  const sInp = group.querySelector(`[data-hsl-s="${part}"]`);
+  const lInp = group.querySelector(`[data-hsl-l="${part}"]`);
+  if (picker && picker.value !== info.hex) picker.value = info.hex;
+  if (codeInp && Number(codeInp.value) !== info.code) codeInp.value = String(info.code);
+  if (hInp) {
+    hInp.value = String(info.hDeg);
+    if (hInp.previousElementSibling) hInp.previousElementSibling.textContent = `H (${info.hDeg}°)`;
+  }
+  if (sInp) {
+    sInp.value = String(info.sPct);
+    if (sInp.previousElementSibling) sInp.previousElementSibling.textContent = `S (${info.sPct}%)`;
+  }
+  if (lInp) {
+    lInp.value = String(info.lPct);
+    if (lInp.previousElementSibling) lInp.previousElementSibling.textContent = `L (${info.lPct}%)`;
+  }
+}
+
+async function openSkinModal(skinName, { push = true } = {}) {
+  const clean = String(skinName || '').trim();
+  if (!clean) return;
+  const all = state.skinsData?.skins || [];
+  const skin =
+    all.find((s) => s.name === clean) ||
+    all.find((s) => s.name.toLowerCase() === clean.toLowerCase()) || {
+      name: clean,
+      type: 'normal',
+      creator: '',
+      license: '',
+      skinpack: '',
+      date: '',
+      uhd: false,
+    };
+
+  state.activeSkinName = skin.name;
+  $('skinModalTitle').textContent = skin.name;
+  const dlUrl = buildSkinImageUrl(skin, { uhd: skin.uhd, download: true });
+  const emotes = [
+    ['normal', tr('skinEmoteNormal')],
+    ['happy', tr('skinEmoteHappy')],
+    ['angry', tr('skinEmoteAngry')],
+    ['pain', tr('skinEmotePain')],
+    ['surprise', tr('skinEmoteSurprise')],
+    ['blink', tr('skinEmoteBlink')],
+  ];
+
+  $('skinModalBody').innerHTML = `
+    <div class="skin-studio-layout">
+      <div class="skin-stage-col">
+        <canvas id="skinPreviewCanvas" class="skin-preview-canvas" width="200" height="200" aria-label="${escapeAttr(skin.name)}"></canvas>
+        <div class="skin-emote-bar" role="group" aria-label="${escapeAttr(tr('skinStudioEmote'))}">
+          ${emotes
+            .map(
+              ([id, label]) =>
+                `<button type="button" class="btn btn-sm btn-toggle${state.skinEmote === id ? ' active' : ''}" data-skin-emote="${id}">${escapeHtml(label)}</button>`
+            )
+            .join('')}
+        </div>
+        <button type="button" class="btn btn-sm" id="skinResetEyeBtn">${escapeHtml(tr('skinResetEyeBtn'))}</button>
+        <div class="skin-card-meta">
+          <span class="skin-badge">${escapeHtml(skin.type === 'community' ? tr('skinTypeCommunity') : tr('skinTypeOfficial'))}</span>
+          ${skin.uhd ? '<span class="skin-badge uhd">UHD</span>' : ''}
+          ${skin.creator ? `<span>${escapeHtml(skin.creator)}</span>` : ''}
+          ${skin.license ? `<span>· ${escapeHtml(skin.license)}</span>` : ''}
+          ${skin.date ? `<span>· ${escapeHtml(formatDate(skin.date, state.lang))}</span>` : ''}
+        </div>
+      </div>
+
+      <div class="skin-controls-col">
+        <label class="skin-toggle-row">
+          <input type="checkbox" id="skinCustomColorToggle"${state.skinCustomColor ? ' checked' : ''} />
+          <span>${escapeHtml(tr('skinCustomColorLabel'))}</span>
+        </label>
+
+        <div class="skin-color-panel${state.skinCustomColor ? '' : ' disabled'}" id="skinColorPanel">
+          ${renderColorControlGroup('body', state.skinBodyCode)}
+          ${renderColorControlGroup('feet', state.skinFeetCode)}
+        </div>
+
+        <div>
+          <div style="font-size:12px;font-weight:600;color:var(--text-secondary);margin-bottom:5px;">${escapeHtml(tr('skinConsoleLabel'))}</div>
+          <div class="skin-cmd-box" id="skinConsolePreview">${escapeHtml(
+            buildSkinConsoleCmds(skin.name, state.skinCustomColor, state.skinBodyCode, state.skinFeetCode)
+          )}</div>
+        </div>
+
+        <div class="modal-actions">
+          <button type="button" class="btn btn-primary btn-sm" id="skinCopyCmdBtn">${icons.copy(14)}<span>${escapeHtml(tr('skinCopyCmdsBtn'))}</span></button>
+          <a href="${escapeAttr(dlUrl)}" class="btn btn-sm" download="${escapeAttr(`${skin.name}.png`)}" id="skinDownloadOriginalBtn">${icons.download(14)}<span>${escapeHtml(tr('skinDownloadPngBtn'))}</span></a>
+          <button type="button" class="btn btn-sm" id="skinSaveAvatarBtn">${icons.download(14)}<span>${escapeHtml(tr('skinSaveAvatarBtn'))}</span></button>
+        </div>
+
+        <div class="state-hint">${escapeHtml(tr('skinInstallHint'))}</div>
+      </div>
+    </div>
+  `;
+
+  $('skinModal').classList.remove('hidden');
+  syncBodyScrollLock();
+  syncUrl({ push });
+
+  activeSkinPreviewImg = null;
+  try {
+    const img = await loadSkinImage(buildSkinImageUrl(skin, { uhd: skin.uhd }));
+    if (state.activeSkinName !== skin.name) return;
+    activeSkinPreviewImg = img;
+    updateSkinPreviewCanvas();
+  } catch {
+    showToast(tr('skinsErrorTitle'));
+  }
+}
+
+function closeSkinModal({ push = true } = {}) {
+  state.activeSkinName = '';
+  activeSkinPreviewImg = null;
+  $('skinModal')?.classList.add('hidden');
+  syncBodyScrollLock();
+  syncUrl({ push });
+}
+
 // Tab switching
 function switchTab(tabName) {
   if (tabName === 'players') state.tab = 'players';
   else if (tabName === 'servers') state.tab = 'servers';
+  else if (tabName === 'skins') state.tab = 'skins';
   else state.tab = 'maps';
 
   $('navMaps').classList.toggle('active', state.tab === 'maps');
   $('navServers').classList.toggle('active', state.tab === 'servers');
   $('navPlayers').classList.toggle('active', state.tab === 'players');
+  $('navSkins')?.classList.toggle('active', state.tab === 'skins');
   $('mapsView').classList.toggle('hidden', state.tab !== 'maps');
   $('serversView').classList.toggle('hidden', state.tab !== 'servers');
   $('playersView').classList.toggle('hidden', state.tab !== 'players');
+  $('skinsView')?.classList.toggle('hidden', state.tab !== 'skins');
 
-  if (state.tab === 'players') {
+  if (state.tab === 'skins') {
+    if (!state.skinsLoaded) {
+      loadSkinsCatalog();
+    }
+    renderSkinsView();
+    if (state.activeSkinName && $('skinModal')?.classList.contains('hidden')) {
+      openSkinModal(state.activeSkinName, { push: false });
+    }
+  } else if (state.tab === 'players') {
     renderPlayerView();
     if (state.playerSubMode === 'duo') {
       if (
@@ -3485,6 +3930,10 @@ function bindEvents() {
     clearSsrContent({ force: true });
     switchTab('players');
   });
+  $('navSkins')?.addEventListener('click', () => {
+    clearSsrContent({ force: true });
+    switchTab('skins');
+  });
 
   $('langBtn').addEventListener('click', () => {
     state.lang = state.lang === 'tr' ? 'en' : 'tr';
@@ -3500,6 +3949,10 @@ function bindEvents() {
       renderServersView();
     }
     if (state.tab === 'players') renderPlayerView();
+    if (state.tab === 'skins' && state.skinsLoaded) renderSkinsView();
+    if (!$('skinModal').classList.contains('hidden') && state.activeSkinName) {
+      openSkinModal(state.activeSkinName, { push: false });
+    }
     if (!$('liveModal').classList.contains('hidden')) renderLiveModal();
     if (!$('guideModal').classList.contains('hidden')) renderGuideModal();
     if (!$('mapModal').classList.contains('hidden') && state.activeMapName) {
@@ -3529,6 +3982,113 @@ function bindEvents() {
   $('guideModalClose').addEventListener('click', closeGuideModal);
   $('guideModal').addEventListener('click', (e) => {
     if (e.target.id === 'guideModal') closeGuideModal();
+  });
+
+  $('skinModalClose')?.addEventListener('click', () => closeSkinModal());
+  $('skinModal')?.addEventListener('click', (e) => {
+    if (e.target.id === 'skinModal') closeSkinModal();
+  });
+
+  // Skins View controls
+  let skinSearchDebounce = null;
+  $('skinSearch')?.addEventListener('input', (e) => {
+    state.skinsSearch = e.target.value;
+    state.skinsPage = 1;
+    clearTimeout(skinSearchDebounce);
+    skinSearchDebounce = setTimeout(() => {
+      renderSkinsView();
+    }, 90);
+  });
+
+  $('skinSearchClear')?.addEventListener('click', () => {
+    state.skinsSearch = '';
+    state.skinsPage = 1;
+    renderSkinsView();
+    $('skinSearch')?.focus();
+  });
+
+  $('skinSortSelect')?.addEventListener('change', (e) => {
+    state.skinsSort = e.target.value;
+    state.skinsPage = 1;
+    renderSkinsView();
+  });
+
+  $('skinTypePills')?.addEventListener('click', (e) => {
+    const btn = e.target.closest('[data-skin-filter]');
+    if (!btn) return;
+    state.skinsFilter = btn.getAttribute('data-skin-filter') || 'all';
+    state.skinsPage = 1;
+    renderSkinsView();
+  });
+
+  $('skinsPrevBtn')?.addEventListener('click', () => {
+    if (state.skinsPage > 1) {
+      state.skinsPage -= 1;
+      renderSkinsView();
+    }
+  });
+
+  $('skinsNextBtn')?.addEventListener('click', () => {
+    state.skinsPage += 1;
+    renderSkinsView();
+  });
+
+  $('retrySkinsBtn')?.addEventListener('click', () => loadSkinsCatalog({ forceRefresh: true }));
+  $('skinsEmptyClearBtn')?.addEventListener('click', () => {
+    state.skinsSearch = '';
+    state.skinsFilter = 'all';
+    state.skinsPage = 1;
+    renderSkinsView();
+  });
+
+  $('skinModalBody')?.addEventListener('input', (e) => {
+    const tEl = e.target;
+    if (!tEl) return;
+    if (tEl.id === 'skinCustomColorToggle') {
+      state.skinCustomColor = Boolean(tEl.checked);
+      $('skinColorPanel')?.classList.toggle('disabled', !state.skinCustomColor);
+      updateSkinPreviewCanvas();
+      return;
+    }
+
+    const part =
+      tEl.getAttribute('data-color-picker') ||
+      tEl.getAttribute('data-color-code') ||
+      tEl.getAttribute('data-hsl-h') ||
+      tEl.getAttribute('data-hsl-s') ||
+      tEl.getAttribute('data-hsl-l');
+    if (!part) return;
+
+    let nextCode = part === 'body' ? state.skinBodyCode : state.skinFeetCode;
+    if (tEl.hasAttribute('data-color-picker')) {
+      nextCode = hexToDdnetCode(tEl.value);
+    } else if (tEl.hasAttribute('data-color-code')) {
+      const n = Number(tEl.value);
+      if (!Number.isFinite(n)) return;
+      nextCode = Math.max(0, Math.min(16777215, Math.round(n)));
+    } else {
+      const group = $('skinModalBody')?.querySelector(`[data-color-part="${part}"]`);
+      const h = Number(group?.querySelector(`[data-hsl-h="${part}"]`)?.value ?? 0);
+      const s = Number(group?.querySelector(`[data-hsl-s="${part}"]`)?.value ?? 100);
+      const l = Number(group?.querySelector(`[data-hsl-l="${part}"]`)?.value ?? 75);
+      nextCode = hslToDdnetCode(h, s, l);
+    }
+
+    if (part === 'body') state.skinBodyCode = nextCode;
+    else state.skinFeetCode = nextCode;
+    syncColorPartInputs(part, nextCode);
+    updateSkinPreviewCanvas();
+  });
+
+  $('skinModalBody')?.addEventListener('pointermove', (e) => {
+    const canvas = e.target.closest('#skinPreviewCanvas');
+    if (!canvas) return;
+    const rect = canvas.getBoundingClientRect();
+    const nx = ((e.clientX - rect.left) / rect.width - 0.5) * 2;
+    const ny = ((e.clientY - rect.top) / rect.height - 0.48) * 2;
+    state.skinLookX = Math.max(-1, Math.min(1, nx));
+    state.skinLookY = Math.max(-1, Math.min(1, ny));
+    updateSkinPreviewCanvas();
   });
 
   $('mapModalClose').addEventListener('click', closeMapModal);
@@ -4270,6 +4830,53 @@ function bindEvents() {
       return;
     }
 
+    const openSkinBtn = target.closest('[data-open-skin]');
+    if (openSkinBtn) {
+      openSkinModal(openSkinBtn.getAttribute('data-open-skin'));
+      return;
+    }
+
+    const emoteBtn = target.closest('[data-skin-emote]');
+    if (emoteBtn) {
+      state.skinEmote = emoteBtn.getAttribute('data-skin-emote') || 'normal';
+      $('skinModalBody')
+        ?.querySelectorAll('[data-skin-emote]')
+        .forEach((b) => b.classList.toggle('active', b === emoteBtn));
+      updateSkinPreviewCanvas();
+      return;
+    }
+
+    if (target.closest('#skinResetEyeBtn')) {
+      state.skinLookX = 0.25;
+      state.skinLookY = 0;
+      updateSkinPreviewCanvas();
+      return;
+    }
+
+    if (target.closest('#skinCopyCmdBtn')) {
+      const cmd = $('skinConsolePreview')?.textContent || '';
+      if (cmd) copyTextToClipboard(cmd, tr('copiedSnippet'));
+      return;
+    }
+
+    if (target.closest('#skinSaveAvatarBtn')) {
+      const canvas = $('skinPreviewCanvas');
+      if (canvas) {
+        canvas.toBlob((blob) => {
+          if (!blob) return;
+          const url = URL.createObjectURL(blob);
+          const a = document.createElement('a');
+          a.href = url;
+          a.download = `${(state.activeSkinName || 'tee').replace(/[^\w.-]+/g, '_')}_tee.png`;
+          document.body.appendChild(a);
+          a.click();
+          a.remove();
+          setTimeout(() => URL.revokeObjectURL(url), 1000);
+        }, 'image/png');
+      }
+      return;
+    }
+
     if (target.closest('#toggleFinishesBtn')) {
       state.showAllFinishes = !state.showAllFinishes;
       renderPlayerView();
@@ -4296,6 +4903,10 @@ function bindEvents() {
       }
       if (!$('guideModal').classList.contains('hidden')) {
         closeGuideModal();
+        return;
+      }
+      if ($('skinModal') && !$('skinModal').classList.contains('hidden')) {
+        closeSkinModal();
         return;
       }
       if (!$('mapAutocomplete').classList.contains('hidden')) {
@@ -4325,20 +4936,23 @@ function bindEvents() {
     if (e.key === '/') {
       e.preventDefault();
       const input =
-        state.tab === 'players'
-          ? state.playerSubMode === 'duo'
-            ? $('duoInputA')
-            : $('playerSearch')
-          : state.tab === 'servers'
-            ? $('serverSearch')
-            : $('mapSearch');
+        state.tab === 'skins'
+          ? $('skinSearch')
+          : state.tab === 'players'
+            ? state.playerSubMode === 'duo'
+              ? $('duoInputA')
+              : $('playerSearch')
+            : state.tab === 'servers'
+              ? $('serverSearch')
+              : $('mapSearch');
       input?.focus();
     } else if (
       (e.key === 'r' || e.key === 'R') &&
       state.tab === 'maps' &&
       $('mapModal').classList.contains('hidden') &&
       $('liveModal').classList.contains('hidden') &&
-      $('guideModal').classList.contains('hidden')
+      $('guideModal').classList.contains('hidden') &&
+      ($('skinModal')?.classList.contains('hidden') ?? true)
     ) {
       e.preventDefault();
       openRandomMap();
@@ -4357,9 +4971,11 @@ function bindEvents() {
     $('navMaps').classList.toggle('active', state.tab === 'maps');
     $('navServers').classList.toggle('active', state.tab === 'servers');
     $('navPlayers').classList.toggle('active', state.tab === 'players');
+    $('navSkins')?.classList.toggle('active', state.tab === 'skins');
     $('mapsView').classList.toggle('hidden', state.tab !== 'maps');
     $('serversView').classList.toggle('hidden', state.tab !== 'servers');
     $('playersView').classList.toggle('hidden', state.tab !== 'players');
+    $('skinsView')?.classList.toggle('hidden', state.tab !== 'skins');
 
     if (state.mapsLoaded) {
       applyMapFilters();
@@ -4370,6 +4986,16 @@ function bindEvents() {
       openMapModal(state.activeMapName, { push: false });
     } else if (!$('mapModal').classList.contains('hidden')) {
       closeMapModal({ push: false });
+    }
+
+    if (state.tab === 'skins') {
+      if (!state.skinsLoaded) loadSkinsCatalog();
+      renderSkinsView({ pushUrl: false });
+      if (state.activeSkinName) {
+        openSkinModal(state.activeSkinName, { push: false });
+      } else if ($('skinModal') && !$('skinModal').classList.contains('hidden')) {
+        closeSkinModal({ push: false });
+      }
     }
 
     if (state.tab === 'servers') {
