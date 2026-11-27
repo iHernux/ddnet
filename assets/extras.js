@@ -4,7 +4,11 @@ import {
   formatDate,
   formatDuration,
   parseReleaseMs,
-} from './i18n.js?v=20261126a';
+} from './i18n.js?v=20261128a';
+
+function encodeUriSegment(str) {
+  return encodeURIComponent(String(str ?? '')).replace(/'/g, '%27');
+}
 
 export const STORAGE_KEY_PLAYLISTS = 'ddnet_playlists_v1';
 
@@ -244,8 +248,8 @@ export function renderNewReleasesStripHtml(officialMaps, lang, collapsed, icons)
         : `<div class="new-releases-strip">
             ${newest
               .map(
-                (m) => `<a href="/map/${encodeURIComponent(m.name)}" class="new-release-card" data-open-map="${escapeAttr(m.name)}">
-                  ${m.thumbnail ? `<img src="${escapeAttr(m.thumbnail)}" alt="${escapeAttr(m.name)}" loading="lazy" decoding="async" />` : '<div class="new-release-thumb-empty"></div>'}
+                (m) => `<a href="/map/${encodeUriSegment(m.name)}" class="new-release-card" data-open-map="${escapeAttr(m.name)}">
+                  ${m.thumbnail ? `<img src="${escapeAttr(m.thumbnail)}" alt="${escapeAttr(m.name)}" width="360" height="225" loading="lazy" decoding="async" />` : '<div class="new-release-thumb-empty"></div>'}
                   <div class="new-release-info">
                     <div class="new-release-name" title="${escapeAttr(m.name)}">${escapeHtml(m.name)}</div>
                     <div class="new-release-meta">
@@ -313,8 +317,8 @@ export function renderSimilarMapsHtml(targetMap, officialMaps, lang) {
     <div class="similar-maps-grid">
       ${sims
         .map(
-          (m) => `<a href="/map/${encodeURIComponent(m.name)}" class="similar-map-card" data-open-map="${escapeAttr(m.name)}">
-            ${m.thumbnail ? `<img src="${escapeAttr(m.thumbnail)}" alt="${escapeAttr(m.name)}" loading="lazy" />` : '<div class="new-release-thumb-empty"></div>'}
+          (m) => `<a href="/map/${encodeUriSegment(m.name)}" class="similar-map-card" data-open-map="${escapeAttr(m.name)}">
+            ${m.thumbnail ? `<img src="${escapeAttr(m.thumbnail)}" alt="${escapeAttr(m.name)}" width="360" height="225" loading="lazy" />` : '<div class="new-release-thumb-empty"></div>'}
             <div class="similar-map-meta">
               <div class="similar-map-name" title="${escapeAttr(m.name)}">${escapeHtml(m.name)}</div>
               <div class="similar-map-sub">

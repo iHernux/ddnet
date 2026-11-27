@@ -5,7 +5,11 @@ import {
   formatTime,
   parseReleaseMs,
   t,
-} from './i18n.js?v=20261126a';
+} from './i18n.js?v=20261128a';
+
+function encodeUriSegment(str) {
+  return encodeURIComponent(String(str ?? '')).replace(/'/g, '%27');
+}
 
 function extractTypesMap(data) {
   const out = new Map();
@@ -292,7 +296,7 @@ export function renderDuoCompareHtml({
                     }
                     return `<div class="list-row duo-map-row">
                       <div class="list-row-left">
-                        <a href="/map/${encodeURIComponent(m.name)}" class="map-name-btn" data-open-map="${escapeAttr(m.name)}">${escapeHtml(m.name)}</a>
+                        <a href="/map/${encodeUriSegment(m.name)}" class="map-name-btn" data-open-map="${escapeAttr(m.name)}">${escapeHtml(m.name)}</a>
                         <span class="cat-badge" data-cat="${escapeAttr(m.type)}"><span class="cat-dot"></span>${escapeHtml(m.type)}</span>
                         <span class="duo-star-chip">${m.difficulty}★</span>
                       </div>

@@ -3,13 +3,14 @@ import {
   DEFAULT_OG_IMAGE,
   LEGACY_CATEGORY_MAP,
   SITE_ORIGIN,
-  escapeAttr,
+  encodeUriSegment,
   escapeHtml,
   fetchCatalogMaps,
   fetchShellHtml,
   injectSeoIntoHtml,
   parseReleaseMs,
   toIsoDate,
+  truncateMeta,
 } from '../_shared/seo.js';
 
 const CACHE_OK = 'public, max-age=300, s-maxage=1800, stale-while-revalidate=86400';
@@ -34,7 +35,23 @@ function parseRawCategoryParam(pathname) {
 
 function buildCategorySsrHtml(category, catMaps, allCategories) {
   const topMaps = catMaps.slice(0, 30);
+  const remainingMaps = catMaps.slice(30);
   const otherCats = allCategories.filter((c) => c !== category);
+
+  const allMapsHtml =
+    remainingMaps.length > 0
+      ? `<div class="ssr-all-maps">
+          <h2>All ${escapeHtml(category)} Maps (${catMaps.length})</h2>
+          <ul class="ssr-compact-links">
+            ${remainingMaps
+              .map(
+                (m) =>
+                  `<li><a href="/map/${encodeUriSegment(m.name)}">${escapeHtml(m.name)}</a></li>`
+              )
+              .join('')}
+          </ul>
+        </div>`
+      : '';
 
   return `<section id="ssrContent" class="ssr-block" data-ssr-type="category">
     <nav class="ssr-breadcrumb" aria-label="Breadcrumb">
@@ -50,7 +67,7 @@ function buildCategorySsrHtml(category, catMaps, allCategories) {
       ${otherCats
         .map(
           (c) =>
-            `<a class="ssr-chip" href="/category/${encodeURIComponent(c)}">${escapeHtml(c)}</a>`
+            `<a class="ssr-chip" href="/category/${encodeUriSegment(c)}">${escapeHtml(c)}</a>`
         )
         .join(' ')}
     </div>
@@ -59,12 +76,13 @@ function buildCategorySsrHtml(category, catMaps, allCategories) {
         .map((m) => {
           const dateStr = toIsoDate(m.release);
           return `<li>
-            <a href="/map/${encodeURIComponent(m.name)}"><strong>${escapeHtml(m.name)}</strong></a>
+            <a href="/map/${encodeUriSegment(m.name)}"><strong>${escapeHtml(m.name)}</strong></a>
             <span>${m.difficulty}★ · ${m.points} pts${m.mapper ? ` · ${escapeHtml(m.mapper)}` : ''}${dateStr ? ` · ${escapeHtml(dateStr)}` : ''}</span>
           </li>`;
         })
         .join('')}
     </ul>
+    ${allMapsHtml}
   </section>`;
 }
 
@@ -74,6 +92,16 @@ function buildNotFoundSsrHtml(rawName) {
     <p class="ssr-lead">No official DDNet category matching <strong>${escapeHtml(rawName || 'this URL')}</strong> was found.</p>
     <div class="ssr-actions">
       <a class="btn btn-primary btn-sm" href="/">Browse All DDNet Maps</a>
+    </div>
+  </section>`;
+}
+
+function buildUpstreamErrorSsrHtml() {
+  return `<section id="ssrContent" class="ssr-block ssr-not-found" data-ssr-status="503">
+    <h1>Catalog Temporarily Unavailable</h1>
+    <p class="ssr-lead">The upstream DDNet map catalog is temporarily unreachable. Please retry in a moment.</p>
+    <div class="ssr-actions">
+      <a class="btn btn-primary btn-sm" href="/">Return Home</a>
     </div>
   </section>`;
 }
@@ -100,7 +128,7 @@ export async function onRequest(context) {
     const html404 = injectSeoIntoHtml(baseHtml, {
       title: 'Category Not Found – DDNet Archive',
       description: 'The requested DDNet map category could not be found.',
-      canonical: `${SITE_ORIGIN}/`,
+      canonical: null,
       robots: 'noindex, follow',
       ssrHtml: buildNotFoundSsrHtml(url.pathname),
       replaceHomeH1: true,
@@ -115,11 +143,21 @@ export async function onRequest(context) {
   }
 
   if (!maps) {
-    return new Response(request.method === 'HEAD' ? null : baseHtml, {
-      status: 200,
+    const html503 = injectSeoIntoHtml(baseHtml, {
+      title: 'Catalog Temporarily Unavailable – DDNet Archive',
+      description: 'The DDNet map catalog is temporarily unavailable. Please try again shortly.',
+      canonical: null,
+      robots: 'noindex, nofollow',
+      ssrHtml: buildUpstreamErrorSsrHtml(),
+      replaceHomeH1: true,
+    });
+    return new Response(request.method === 'HEAD' ? null : html503, {
+      status: 503,
       headers: {
         'Content-Type': 'text/html; charset=utf-8',
-        'Cache-Control': 'public, max-age=60, s-maxage=120',
+        'Retry-After': '60',
+        'X-Robots-Tag': 'noindex',
+        'Cache-Control': 'no-store',
       },
     });
   }
@@ -140,8 +178,11 @@ export async function onRequest(context) {
   if (!canonicalCategory) {
     const html404 = injectSeoIntoHtml(baseHtml, {
       title: 'Category Not Found – DDNet Archive',
-      description: `No official DDNet map category named "${trimmed}" exists in DDNet Archive.`,
-      canonical: `${SITE_ORIGIN}/`,
+      description: truncateMeta(
+        `No official DDNet map category named "${trimmed}" exists in DDNet Archive.`,
+        158
+      ),
+      canonical: null,
       robots: 'noindex, follow',
       ssrHtml: buildNotFoundSsrHtml(trimmed),
       replaceHomeH1: true,
@@ -155,7 +196,7 @@ export async function onRequest(context) {
     });
   }
 
-  const canonicalPath = `/category/${encodeURIComponent(canonicalCategory)}`;
+  const canonicalPath = `/category/${encodeUriSegment(canonicalCategory)}`;
   if (hasTrailingSlash || url.pathname !== canonicalPath) {
     return Response.redirect(`${SITE_ORIGIN}${canonicalPath}${url.search}`, 301);
   }
@@ -181,8 +222,14 @@ export async function onRequest(context) {
   if (!Number.isFinite(minDiff)) minDiff = 0;
 
   const canonicalUrl = `${SITE_ORIGIN}${canonicalPath}`;
-  const title = `${canonicalCategory} DDNet Maps (${catMaps.length} Maps) – DDNet Archive`;
-  const description = `Browse all ${catMaps.length} official ${canonicalCategory} DDNet maps (${minDiff}–${maxDiff} stars, ${minPts}–${maxPts} points). Filter by difficulty or mapper and view live records on DDNet Archive.`;
+  const title = truncateMeta(
+    `${canonicalCategory} DDNet Maps (${catMaps.length} Maps) – DDNet Archive`,
+    60
+  );
+  const description = truncateMeta(
+    `Browse all ${catMaps.length} official ${canonicalCategory} DDNet maps (${minDiff}–${maxDiff} stars, ${minPts}–${maxPts} points). Filter by difficulty or mapper on DDNet Archive.`,
+    158
+  );
 
   const jsonLd = {
     '@context': 'https://schema.org',
@@ -199,15 +246,14 @@ export async function onRequest(context) {
         name: `${canonicalCategory} DDNet Maps`,
         url: canonicalUrl,
         description,
-        numberOfItems: catMaps.length,
         mainEntity: {
           '@type': 'ItemList',
-          numberOfItems: Math.min(30, catMaps.length),
+          numberOfItems: catMaps.length,
           itemListElement: catMaps.slice(0, 30).map((m, idx) => ({
             '@type': 'ListItem',
             position: idx + 1,
             name: m.name,
-            url: `${SITE_ORIGIN}/map/${encodeURIComponent(m.name)}`,
+            url: `${SITE_ORIGIN}/map/${encodeUriSegment(m.name)}`,
           })),
         },
       },
@@ -220,6 +266,9 @@ export async function onRequest(context) {
     canonical: canonicalUrl,
     ogImage: DEFAULT_OG_IMAGE,
     ogImageHasDims: true,
+    ogImageWidth: 1200,
+    ogImageHeight: 630,
+    ogImageAlt: `${canonicalCategory} DDNet Maps — DDNet Archive`,
     jsonLd,
     ssrHtml: buildCategorySsrHtml(canonicalCategory, catMaps, allCategories),
     replaceHomeH1: true,

@@ -1,6 +1,7 @@
 import {
   DEFAULT_OG_IMAGE,
   SITE_ORIGIN,
+  encodeUriSegment,
   escapeAttr,
   escapeHtml,
   fetchCatalogMaps,
@@ -8,6 +9,7 @@ import {
   injectSeoIntoHtml,
   parseReleaseMs,
   toIsoDate,
+  truncateMeta,
 } from '../_shared/seo.js';
 import {
   fetchMasterSnapshot,
@@ -18,6 +20,16 @@ import {
 const CACHE_OK = 'public, max-age=300, s-maxage=1800, stale-while-revalidate=86400';
 const CACHE_COMMUNITY = 'public, max-age=60, s-maxage=180, stale-while-revalidate=600';
 const CACHE_404 = 'public, max-age=60, s-maxage=300';
+
+export function buildMapTitle(map) {
+  const full = `${map.name} (${map.type}, ${map.difficulty}★) – DDNet Archive`;
+  if (full.length <= 60) return full;
+  const medium = `${map.name} – ${map.type} DDNet Map | DDNet Archive`;
+  if (medium.length <= 60) return medium;
+  const compact = `${map.name} – DDNet Archive`;
+  if (compact.length <= 60) return compact;
+  return truncateMeta(compact, 60);
+}
 
 function parseRawMapParam(pathname) {
   const prefix = '/map/';
@@ -41,12 +53,12 @@ function parseRawMapParam(pathname) {
 }
 
 function buildMapSsrHtml(map, relatedMaps) {
-  const catUrl = `/category/${encodeURIComponent(map.type)}`;
+  const catUrl = `/category/${encodeUriSegment(map.type)}`;
   const releaseIso = toIsoDate(map.release);
   const sizeText = map.width && map.height ? `${map.width} × ${map.height}` : '—';
   const webPreview =
     map.webPreview || `https://ddnet.org/mappreview/?map=${encodeURIComponent(map.name)}`;
-  const website = map.website || `https://ddnet.org/maps/${encodeURIComponent(map.name)}`;
+  const website = map.website || `https://ddnet.org/maps/${encodeUriSegment(map.name)}`;
 
   const tilesHtml =
     Array.isArray(map.tiles) && map.tiles.length > 0
@@ -63,7 +75,7 @@ function buildMapSsrHtml(map, relatedMaps) {
             ${relatedMaps
               .map(
                 (rm) =>
-                  `<li><a href="/map/${encodeURIComponent(rm.name)}">${escapeHtml(rm.name)}</a> <span>(${rm.difficulty}★ · ${rm.points} pts)</span></li>`
+                  `<li><a href="/map/${encodeUriSegment(rm.name)}">${escapeHtml(rm.name)}</a> <span>(${rm.difficulty}★ · ${rm.points} pts)</span></li>`
               )
               .join('')}
           </ul>
@@ -103,7 +115,7 @@ function buildMapSsrHtml(map, relatedMaps) {
           ${releaseIso ? `<div><dt>Released</dt><dd>${escapeHtml(releaseIso)}</dd></div>` : ''}
         </dl>
         <div class="ssr-actions">
-          <a class="btn btn-primary btn-sm" href="${escapeAttr(`/api/download?name=${encodeURIComponent(map.name)}&type=${encodeURIComponent(map.type)}&source=ddnet`)}" download="${escapeAttr(`${map.name}.map`)}">Download .map</a>
+          <a class="btn btn-primary btn-sm" rel="nofollow" href="${escapeAttr(`/api/download?name=${encodeURIComponent(map.name)}&type=${encodeURIComponent(map.type)}&source=ddnet`)}" download="${escapeAttr(`${map.name}.map`)}">Download .map</a>
           <a class="btn btn-sm" href="${escapeAttr(webPreview)}" target="_blank" rel="noopener noreferrer">Web Preview</a>
           <a class="btn btn-sm" href="${escapeAttr(website)}" target="_blank" rel="noopener noreferrer">Official DDNet Page</a>
           <a class="btn btn-sm" href="${escapeAttr(catUrl)}">All ${escapeHtml(map.type)} Maps</a>
@@ -162,6 +174,16 @@ function buildNotFoundSsrHtml(rawName) {
   </section>`;
 }
 
+function buildUpstreamErrorSsrHtml() {
+  return `<section id="ssrContent" class="ssr-block ssr-not-found" data-ssr-status="503">
+    <h1>Catalog Temporarily Unavailable</h1>
+    <p class="ssr-lead">The upstream DDNet map catalog is temporarily unreachable. Please retry in a moment.</p>
+    <div class="ssr-actions">
+      <a class="btn btn-primary btn-sm" href="/">Return Home</a>
+    </div>
+  </section>`;
+}
+
 export async function onRequest(context) {
   const { request } = context;
   if (request.method !== 'GET' && request.method !== 'HEAD') {
@@ -184,7 +206,7 @@ export async function onRequest(context) {
     const html404 = injectSeoIntoHtml(baseHtml, {
       title: 'Map Not Found – DDNet Archive',
       description: 'The requested DDNet map could not be found in the official catalog.',
-      canonical: `${SITE_ORIGIN}/`,
+      canonical: null,
       robots: 'noindex, follow',
       ssrHtml: buildNotFoundSsrHtml(url.pathname),
       replaceHomeH1: true,
@@ -198,13 +220,22 @@ export async function onRequest(context) {
     });
   }
 
-  // If upstream maps.json failed transiently, serve app shell cleanly with 200 (no false 404)
   if (!maps) {
-    return new Response(request.method === 'HEAD' ? null : baseHtml, {
-      status: 200,
+    const html503 = injectSeoIntoHtml(baseHtml, {
+      title: 'Catalog Temporarily Unavailable – DDNet Archive',
+      description: 'The DDNet map catalog is temporarily unavailable. Please try again shortly.',
+      canonical: null,
+      robots: 'noindex, nofollow',
+      ssrHtml: buildUpstreamErrorSsrHtml(),
+      replaceHomeH1: true,
+    });
+    return new Response(request.method === 'HEAD' ? null : html503, {
+      status: 503,
       headers: {
         'Content-Type': 'text/html; charset=utf-8',
-        'Cache-Control': 'public, max-age=60, s-maxage=120',
+        'Retry-After': '60',
+        'X-Robots-Tag': 'noindex',
+        'Cache-Control': 'no-store',
       },
     });
   }
@@ -228,9 +259,12 @@ export async function onRequest(context) {
 
     if (masterMatches.length === 0 && !hasStatus) {
       const html404 = injectSeoIntoHtml(baseHtml, {
-        title: `Map Not Found – DDNet Archive`,
-        description: `No official DDNet map named "${trimmed}" exists in the DDNet Archive catalog.`,
-        canonical: `${SITE_ORIGIN}/`,
+        title: 'Map Not Found – DDNet Archive',
+        description: truncateMeta(
+          `No official DDNet map named "${trimmed}" exists in the DDNet Archive catalog.`,
+          158
+        ),
+        canonical: null,
         robots: 'noindex, follow',
         ssrHtml: buildNotFoundSsrHtml(trimmed),
         replaceHomeH1: true,
@@ -245,7 +279,7 @@ export async function onRequest(context) {
     }
 
     const canonicalName = statusRes.data?.name || masterMatches[0]?.mapName || trimmed;
-    const canonicalPath = `/map/${encodeURIComponent(canonicalName)}`;
+    const canonicalPath = `/map/${encodeUriSegment(canonicalName)}`;
     if (hasTrailingSlash || url.pathname !== canonicalPath) {
       return Response.redirect(`${SITE_ORIGIN}${canonicalPath}${url.search}`, 301);
     }
@@ -264,8 +298,14 @@ export async function onRequest(context) {
     const firstSeen = typeof statusRes.data?.createdAt === 'string' ? statusRes.data.createdAt : '';
 
     const canonicalUrl = `${SITE_ORIGIN}${canonicalPath}`;
-    const title = `${canonicalName} (${category}) – Live Server Map | DDNet Archive`;
-    const description = `${canonicalName} is a live ${category} (${gameType || category}) map across ${liveServers} server(s) with ${livePlayers} players online right now.`;
+    const title = truncateMeta(
+      `${canonicalName} (${category}) – Live Server | DDNet Archive`,
+      60
+    );
+    const description = truncateMeta(
+      `${canonicalName} is a live ${category} (${gameType || category}) map across ${liveServers} server(s) with ${livePlayers} players online right now.`,
+      158
+    );
 
     const finalHtml = injectSeoIntoHtml(baseHtml, {
       title,
@@ -273,6 +313,9 @@ export async function onRequest(context) {
       canonical: canonicalUrl,
       ogImage: DEFAULT_OG_IMAGE,
       ogImageHasDims: true,
+      ogImageWidth: 1200,
+      ogImageHeight: 630,
+      ogImageAlt: `${canonicalName} – DDNet Archive`,
       robots: 'noindex, follow',
       ssrHtml: buildCommunityMapSsrHtml(canonicalName, {
         category,
@@ -294,19 +337,22 @@ export async function onRequest(context) {
     });
   }
 
-  const canonicalPath = `/map/${encodeURIComponent(map.name)}`;
+  const canonicalPath = `/map/${encodeUriSegment(map.name)}`;
   if (hasTrailingSlash || url.pathname !== canonicalPath) {
     return Response.redirect(`${SITE_ORIGIN}${canonicalPath}${url.search}`, 301);
   }
 
   const canonicalUrl = `${SITE_ORIGIN}${canonicalPath}`;
   const releaseIso = toIsoDate(map.release);
-  const title = `${map.name} (${map.type}, ${map.difficulty}★) – DDNet Map | DDNet Archive`;
-  const description = `${map.name} is a ${map.difficulty}-star ${map.type} DDNet map${
-    map.mapper ? ` by ${map.mapper}` : ''
-  } worth ${map.points} points${
-    releaseIso ? `, released ${releaseIso}` : ''
-  }. View rankings, team records, tiles, and map preview on DDNet Archive.`;
+  const title = buildMapTitle(map);
+  const description = truncateMeta(
+    `${map.name} is a ${map.difficulty}-star ${map.type} DDNet map${
+      map.mapper ? ` by ${map.mapper}` : ''
+    } worth ${map.points} points${
+      releaseIso ? `, released ${releaseIso}` : ''
+    }. View rankings, records, tiles, and preview on DDNet Archive.`,
+    158
+  );
 
   const relatedMaps = maps
     .filter((m) => m.type === map.type && m.name !== map.name)
@@ -317,7 +363,17 @@ export async function onRequest(context) {
     })
     .slice(0, 8);
 
-  const ogImage = map.thumbnail || DEFAULT_OG_IMAGE;
+  const authors = map.mapper
+    ? map.mapper
+        .split(/\s*(?:,|&)\s*/)
+        .map((s) => s.trim())
+        .filter(Boolean)
+        .map((name) => ({ '@type': 'Person', name }))
+    : [];
+
+  const hasThumb = Boolean(map.thumbnail);
+  const ogImage = hasThumb ? map.thumbnail : DEFAULT_OG_IMAGE;
+
   const jsonLd = {
     '@context': 'https://schema.org',
     '@graph': [
@@ -329,7 +385,7 @@ export async function onRequest(context) {
             '@type': 'ListItem',
             position: 2,
             name: `${map.type} Maps`,
-            item: `${SITE_ORIGIN}/category/${encodeURIComponent(map.type)}`,
+            item: `${SITE_ORIGIN}/category/${encodeUriSegment(map.type)}`,
           },
           { '@type': 'ListItem', position: 3, name: map.name, item: canonicalUrl },
         ],
@@ -340,9 +396,17 @@ export async function onRequest(context) {
         url: canonicalUrl,
         description,
         image: ogImage,
+        inLanguage: 'en',
         genre: `DDNet ${map.type} Map`,
-        ...(map.mapper ? { author: { '@type': 'Person', name: map.mapper } } : {}),
+        ...(hasThumb ? { thumbnailUrl: map.thumbnail } : {}),
+        ...(Array.isArray(map.tiles) && map.tiles.length > 0 ? { keywords: map.tiles } : {}),
+        ...(authors.length > 0 ? { author: authors } : {}),
         ...(releaseIso ? { datePublished: releaseIso } : {}),
+        about: {
+          '@type': 'VideoGame',
+          name: 'DDraceNetwork (DDNet)',
+          url: 'https://ddnet.org/',
+        },
         isPartOf: {
           '@type': 'WebSite',
           name: 'DDNet Archive',
@@ -357,7 +421,10 @@ export async function onRequest(context) {
     description,
     canonical: canonicalUrl,
     ogImage,
-    ogImageHasDims: !map.thumbnail,
+    ogImageHasDims: true,
+    ogImageWidth: hasThumb ? 360 : 1200,
+    ogImageHeight: hasThumb ? 225 : 630,
+    ogImageAlt: hasThumb ? `${map.name} DDNet map preview` : `${map.name} – DDNet Archive`,
     jsonLd,
     ssrHtml: buildMapSsrHtml(map, relatedMaps),
     replaceHomeH1: true,

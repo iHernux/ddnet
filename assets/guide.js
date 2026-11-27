@@ -1,5 +1,5 @@
-import { escapeAttr, escapeHtml, t } from './i18n.js?v=20261126a';
-import { renderConfigBuilderHtml, renderMechanicsExplorerHtml } from './builder.js?v=20261126a';
+import { escapeAttr, escapeHtml, t } from './i18n.js?v=20261128a';
+import { renderConfigBuilderHtml, renderMechanicsExplorerHtml } from './builder.js?v=20261128a';
 
 export const GUIDE_SNIPPETS = {
   // Map setup snippets

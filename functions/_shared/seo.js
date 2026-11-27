@@ -26,6 +26,20 @@ export const LEGACY_CATEGORY_MAP = {
   nut: 'DDmaX.Nut',
 };
 
+export function encodeUriSegment(str) {
+  return encodeURIComponent(String(str ?? '')).replace(/'/g, '%27');
+}
+
+export function truncateMeta(str, maxLen = 158) {
+  const text = String(str ?? '').replace(/\s+/g, ' ').trim();
+  if (text.length <= maxLen) return text;
+  if (maxLen <= 1) return text.slice(0, Math.max(0, maxLen));
+  const slice = text.slice(0, maxLen - 1);
+  const lastSpace = slice.lastIndexOf(' ');
+  const cut = lastSpace >= Math.floor((maxLen - 1) * 0.5) ? slice.slice(0, lastSpace) : slice;
+  return `${cut.replace(/[\s,;:\-–—]+$/, '')}…`;
+}
+
 export function escapeHtml(str) {
   return String(str ?? '')
     .replace(/&/g, '&amp;')
@@ -90,7 +104,7 @@ export function normalizeMap(m) {
     website:
       typeof m.website === 'string' && m.website
         ? m.website
-        : `https://ddnet.org/maps/${encodeURIComponent(name)}`,
+        : `https://ddnet.org/maps/${encodeUriSegment(name)}`,
     webPreview: typeof m.web_preview === 'string' ? m.web_preview : '',
   };
 }
@@ -165,6 +179,14 @@ export async function fetchShellHtml(context) {
   return res.text();
 }
 
+function inferImageMimeType(imageUrl) {
+  const clean = String(imageUrl || '').split('?')[0].split('#')[0].toLowerCase();
+  if (clean.endsWith('.png')) return 'image/png';
+  if (clean.endsWith('.webp')) return 'image/webp';
+  if (clean.endsWith('.jpg') || clean.endsWith('.jpeg')) return 'image/jpeg';
+  return '';
+}
+
 export function injectSeoIntoHtml(
   baseHtml,
   {
@@ -173,6 +195,9 @@ export function injectSeoIntoHtml(
     canonical,
     ogImage = DEFAULT_OG_IMAGE,
     ogImageHasDims = true,
+    ogImageWidth = null,
+    ogImageHeight = null,
+    ogImageAlt = '',
     robots = '',
     jsonLd = null,
     ssrHtml = '',
@@ -182,62 +207,106 @@ export function injectSeoIntoHtml(
   let html = baseHtml;
 
   const safeTitle = escapeHtml(title);
+  const safeAttrTitle = escapeAttr(title);
   const safeDesc = escapeAttr(description);
-  const safeCanonical = escapeAttr(canonical);
-  const safeOgImage = escapeAttr(ogImage || DEFAULT_OG_IMAGE);
+  const resolvedOgImage = ogImage || DEFAULT_OG_IMAGE;
+  const safeOgImage = escapeAttr(resolvedOgImage);
 
-  html = html.replace(/<title>[\s\S]*?<\/title>/i, `<title>${safeTitle}</title>`);
+  html = html.replace(/<title>[\s\S]*?<\/title>/i, () => `<title>${safeTitle}</title>`);
   html = html.replace(
     /<meta\s+name="description"\s+content="[^"]*"\s*\/?>/i,
-    `<meta name="description" content="${safeDesc}" />`
+    () => `<meta name="description" content="${safeDesc}" />`
   );
-  html = html.replace(
-    /<link\s+rel="canonical"\s+href="[^"]*"\s*\/?>/i,
-    `<link rel="canonical" href="${safeCanonical}" />`
-  );
-  html = html.replace(
-    /<meta\s+property="og:url"\s+content="[^"]*"\s*\/?>/i,
-    `<meta property="og:url" content="${safeCanonical}" />`
-  );
+
+  if (canonical) {
+    const safeCanonical = escapeAttr(canonical);
+    html = html.replace(
+      /<link\s+rel="canonical"\s+href="[^"]*"\s*\/?>/i,
+      () => `<link rel="canonical" href="${safeCanonical}" />`
+    );
+    html = html.replace(
+      /<meta\s+property="og:url"\s+content="[^"]*"\s*\/?>/i,
+      () => `<meta property="og:url" content="${safeCanonical}" />`
+    );
+    html = html.replace(
+      /<meta\s+name="twitter:url"\s+content="[^"]*"\s*\/?>/i,
+      () => `<meta name="twitter:url" content="${safeCanonical}" />`
+    );
+  } else {
+    html = html
+      .replace(/<link\s+rel="canonical"\s+href="[^"]*"\s*\/?>\s*/i, () => '')
+      .replace(/<meta\s+property="og:url"\s+content="[^"]*"\s*\/?>\s*/i, () => '')
+      .replace(/<meta\s+name="twitter:url"\s+content="[^"]*"\s*\/?>\s*/i, () => '');
+  }
+
   html = html.replace(
     /<meta\s+property="og:title"\s+content="[^"]*"\s*\/?>/i,
-    `<meta property="og:title" content="${escapeAttr(title)}" />`
+    () => `<meta property="og:title" content="${safeAttrTitle}" />`
   );
   html = html.replace(
     /<meta\s+property="og:description"\s+content="[^"]*"\s*\/?>/i,
-    `<meta property="og:description" content="${safeDesc}" />`
+    () => `<meta property="og:description" content="${safeDesc}" />`
   );
   html = html.replace(
     /<meta\s+property="og:image"\s+content="[^"]*"\s*\/?>/i,
-    `<meta property="og:image" content="${safeOgImage}" />`
-  );
-  html = html.replace(
-    /<meta\s+name="twitter:url"\s+content="[^"]*"\s*\/?>/i,
-    `<meta name="twitter:url" content="${safeCanonical}" />`
+    () => `<meta property="og:image" content="${safeOgImage}" />`
   );
   html = html.replace(
     /<meta\s+name="twitter:title"\s+content="[^"]*"\s*\/?>/i,
-    `<meta name="twitter:title" content="${escapeAttr(title)}" />`
+    () => `<meta name="twitter:title" content="${safeAttrTitle}" />`
   );
   html = html.replace(
     /<meta\s+name="twitter:description"\s+content="[^"]*"\s*\/?>/i,
-    `<meta name="twitter:description" content="${safeDesc}" />`
+    () => `<meta name="twitter:description" content="${safeDesc}" />`
   );
   html = html.replace(
     /<meta\s+name="twitter:image"\s+content="[^"]*"\s*\/?>/i,
-    `<meta name="twitter:image" content="${safeOgImage}" />`
+    () => `<meta name="twitter:image" content="${safeOgImage}" />`
   );
 
-  if (!ogImageHasDims) {
+  if (ogImageWidth && ogImageHeight) {
     html = html
-      .replace(/<meta\s+property="og:image:width"\s+content="[^"]*"\s*\/?>\s*/i, '')
-      .replace(/<meta\s+property="og:image:height"\s+content="[^"]*"\s*\/?>\s*/i, '');
+      .replace(
+        /<meta\s+property="og:image:width"\s+content="[^"]*"\s*\/?>/i,
+        () => `<meta property="og:image:width" content="${escapeAttr(String(ogImageWidth))}" />`
+      )
+      .replace(
+        /<meta\s+property="og:image:height"\s+content="[^"]*"\s*\/?>/i,
+        () => `<meta property="og:image:height" content="${escapeAttr(String(ogImageHeight))}" />`
+      );
+  } else if (!ogImageHasDims) {
+    html = html
+      .replace(/<meta\s+property="og:image:width"\s+content="[^"]*"\s*\/?>\s*/i, () => '')
+      .replace(/<meta\s+property="og:image:height"\s+content="[^"]*"\s*\/?>\s*/i, () => '');
+  }
+
+  const imageMime = inferImageMimeType(resolvedOgImage);
+  if (imageMime) {
+    html = html.replace(
+      /<meta\s+property="og:image:type"\s+content="[^"]*"\s*\/?>/i,
+      () => `<meta property="og:image:type" content="${escapeAttr(imageMime)}" />`
+    );
+  } else {
+    html = html.replace(/<meta\s+property="og:image:type"\s+content="[^"]*"\s*\/?>\s*/i, () => '');
+  }
+
+  if (ogImageAlt) {
+    const safeAlt = escapeAttr(ogImageAlt);
+    html = html
+      .replace(
+        /<meta\s+property="og:image:alt"\s+content="[^"]*"\s*\/?>/i,
+        () => `<meta property="og:image:alt" content="${safeAlt}" />`
+      )
+      .replace(
+        /<meta\s+name="twitter:image:alt"\s+content="[^"]*"\s*\/?>/i,
+        () => `<meta name="twitter:image:alt" content="${safeAlt}" />`
+      );
   }
 
   if (robots) {
     html = html.replace(
       /<\/head>/i,
-      `<meta name="robots" content="${escapeAttr(robots)}" />\n</head>`
+      () => `<meta name="robots" content="${escapeAttr(robots)}" />\n</head>`
     );
   }
 
@@ -246,21 +315,23 @@ export function injectSeoIntoHtml(
     if (html.includes('<!-- JSONLD_START -->') && html.includes('<!-- JSONLD_END -->')) {
       html = html.replace(
         /<!-- JSONLD_START -->[\s\S]*?<!-- JSONLD_END -->/,
-        `<!-- JSONLD_START -->\n${ldTag}\n<!-- JSONLD_END -->`
+        () => `<!-- JSONLD_START -->\n${ldTag}\n<!-- JSONLD_END -->`
       );
     } else {
-      html = html.replace(/<\/head>/i, `${ldTag}\n</head>`);
+      html = html.replace(/<\/head>/i, () => `${ldTag}\n</head>`);
     }
   } else if (robots && robots.includes('noindex')) {
-    html = html.replace(/<!-- JSONLD_START -->[\s\S]*?<!-- JSONLD_END -->/, '');
+    html = html.replace(/<!-- JSONLD_START -->[\s\S]*?<!-- JSONLD_END -->\s*/i, () => '');
   }
 
   if (replaceHomeH1) {
-    html = html.replace(/<h1\s+id="homeSrHeading"[^>]*>[\s\S]*?<\/h1>\s*/i, '');
+    html = html
+      .replace(/<div\s+class="page-intro"\s+id="pageIntro"[^>]*>[\s\S]*?<\/div>\s*/i, () => '')
+      .replace(/<h1\s+id="homeSrHeading"[^>]*>[\s\S]*?<\/h1>\s*/i, () => '');
   }
 
   if (ssrHtml && html.includes('<!-- SSR_SLOT -->')) {
-    html = html.replace('<!-- SSR_SLOT -->', ssrHtml);
+    html = html.replace('<!-- SSR_SLOT -->', () => ssrHtml);
   }
 
   return html;

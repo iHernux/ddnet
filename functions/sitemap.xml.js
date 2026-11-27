@@ -1,6 +1,7 @@
 import {
   CATEGORY_ORDER,
   SITE_ORIGIN,
+  encodeUriSegment,
   escapeXml,
   fetchCatalogMaps,
   parseReleaseMs,
@@ -9,11 +10,9 @@ import {
 
 const CACHE_CONTROL = 'public, max-age=3600, s-maxage=21600, stale-while-revalidate=86400';
 
-function buildUrlEntry(loc, { lastmod = '', changefreq = '', priority = '' } = {}) {
+function buildUrlEntry(loc, { lastmod = '' } = {}) {
   const parts = [`<url><loc>${escapeXml(loc)}</loc>`];
   if (lastmod) parts.push(`<lastmod>${escapeXml(lastmod)}</lastmod>`);
-  if (changefreq) parts.push(`<changefreq>${escapeXml(changefreq)}</changefreq>`);
-  if (priority) parts.push(`<priority>${escapeXml(priority)}</priority>`);
   parts.push('</url>');
   return parts.join('');
 }
@@ -68,8 +67,6 @@ export async function onRequest(context) {
     entries.push(
       buildUrlEntry(`${SITE_ORIGIN}/`, {
         lastmod: globalLastmod,
-        changefreq: 'daily',
-        priority: '1.0',
       })
     );
 
@@ -77,15 +74,13 @@ export async function onRequest(context) {
       const catMs = catLatestMs.get(cat) || globalLatestMs;
       const catLastmod = catMs ? new Date(catMs).toISOString().slice(0, 10) : '';
       entries.push(
-        buildUrlEntry(`${SITE_ORIGIN}/category/${encodeURIComponent(cat)}`, {
+        buildUrlEntry(`${SITE_ORIGIN}/category/${encodeUriSegment(cat)}`, {
           lastmod: catLastmod,
-          changefreq: 'daily',
-          priority: '0.9',
         })
       );
     }
 
-    // Sort maps newest-first so Googlebot discovers fresh releases at the top of the sitemap
+    // Sort maps newest-first so crawlers discover fresh releases at the top of the sitemap
     const sortedMaps = [...maps].sort((a, b) => {
       const diff = parseReleaseMs(b.release) - parseReleaseMs(a.release);
       return diff !== 0 ? diff : a.name.localeCompare(b.name);
@@ -93,10 +88,8 @@ export async function onRequest(context) {
 
     for (const m of sortedMaps) {
       entries.push(
-        buildUrlEntry(`${SITE_ORIGIN}/map/${encodeURIComponent(m.name)}`, {
+        buildUrlEntry(`${SITE_ORIGIN}/map/${encodeUriSegment(m.name)}`, {
           lastmod: toIsoDate(m.release),
-          changefreq: 'weekly',
-          priority: '0.7',
         })
       );
     }
@@ -132,7 +125,7 @@ export async function onRequest(context) {
     const fallbackXml =
       '<?xml version="1.0" encoding="UTF-8"?>\n' +
       '<urlset xmlns="http://www.sitemaps.org/schemas/sitemap/0.9">\n' +
-      buildUrlEntry(`${SITE_ORIGIN}/`, { changefreq: 'daily', priority: '1.0' }) +
+      buildUrlEntry(`${SITE_ORIGIN}/`) +
       '\n</urlset>\n';
     const headers = {
       'Content-Type': 'application/xml; charset=utf-8',

@@ -1,14 +1,8 @@
 <!DOCTYPE html>
 <html lang="en" data-theme="dark">
 <head>
-<script>
-// Hostname-based redirect: production ddnet.pages.dev -> ddnet-archive.xyz (preserves branch previews like redesign.ddnet.pages.dev)
-(function() {
-  if (window.location.hostname === 'ddnet.pages.dev') {
-    window.location.replace('https://ddnet-archive.xyz' + window.location.pathname + window.location.search + window.location.hash);
-  }
-})();
-</script>
+<meta charset="UTF-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1.0, viewport-fit=cover" />
 <script>
 // Prevent dark/light theme flash before CSS parses
 (function() {
@@ -20,26 +14,30 @@
   }
 })();
 </script>
-<meta charset="UTF-8" />
-<meta name="viewport" content="width=device-width, initial-scale=1.0, viewport-fit=cover" />
 <title>DDNet Archive – Player Stats, Map Search &amp; DDNet Data</title>
-<meta name="description" content="DDNet Archive provides fast access to DDNet player statistics, live map catalog, rankings and game data." />
+<meta name="description" content="Explore 2,400+ official DDNet (DDraceNetwork) maps, live servers, player rankings, duo stats, and skins. Fast searchable catalog auto-synced with ddnet.org." />
 <link rel="canonical" href="https://ddnet-archive.xyz/" />
+<meta name="theme-color" content="#0d1117" />
+<link rel="manifest" href="/site.webmanifest" />
 <meta property="og:type" content="website" />
+<meta property="og:locale" content="en_US" />
 <meta property="og:site_name" content="DDNet Archive" />
 <meta property="og:url" content="https://ddnet-archive.xyz/" />
 <meta property="og:title" content="DDNet Archive – Player Stats, Map Search &amp; DDNet Data" />
-<meta property="og:description" content="DDNet Archive provides fast access to DDNet player statistics, live map catalog, rankings and game data." />
+<meta property="og:description" content="Explore 2,400+ official DDNet (DDraceNetwork) maps, live servers, player rankings, duo stats, and skins. Fast searchable catalog auto-synced with ddnet.org." />
 <meta property="og:image" content="https://ddnet-archive.xyz/og-image.jpg" />
-<meta property="og:image:width" content="1376" />
-<meta property="og:image:height" content="768" />
+<meta property="og:image:width" content="1200" />
+<meta property="og:image:height" content="630" />
+<meta property="og:image:type" content="image/jpeg" />
+<meta property="og:image:alt" content="DDNet Archive — Official DDNet Map Catalog, Live Servers and Player Stats" />
 <meta name="twitter:card" content="summary_large_image" />
 <meta name="twitter:url" content="https://ddnet-archive.xyz/" />
 <meta name="twitter:title" content="DDNet Archive – Player Stats, Map Search &amp; DDNet Data" />
-<meta name="twitter:description" content="DDNet Archive provides fast access to DDNet player statistics, live map catalog, rankings and game data." />
+<meta name="twitter:description" content="Explore 2,400+ official DDNet (DDraceNetwork) maps, live servers, player rankings, duo stats, and skins. Fast searchable catalog auto-synced with ddnet.org." />
 <meta name="twitter:image" content="https://ddnet-archive.xyz/og-image.jpg" />
+<meta name="twitter:image:alt" content="DDNet Archive — Official DDNet Map Catalog, Live Servers and Player Stats" />
 <!-- JSONLD_START -->
-<script type="application/ld+json">{"@context":"https://schema.org","@type":"WebSite","name":"DDNet Archive","url":"https://ddnet-archive.xyz/","description":"Live DDNet map catalog, rankings, and player statistics auto-synced with ddnet.org.","potentialAction":{"@type":"SearchAction","target":{"@type":"EntryPoint","urlTemplate":"https://ddnet-archive.xyz/?q={search_term_string}"},"query-input":"required name=search_term_string"}}</script>
+<script type="application/ld+json">{"@context":"https://schema.org","@graph":[{"@type":"WebSite","@id":"https://ddnet-archive.xyz/#website","name":"DDNet Archive","url":"https://ddnet-archive.xyz/","description":"Explore 2,400+ official DDNet (DDraceNetwork) maps, live servers, player rankings, duo stats, and skins. Fast searchable catalog auto-synced with ddnet.org.","publisher":{"@id":"https://ddnet-archive.xyz/#organization"},"potentialAction":{"@type":"SearchAction","target":{"@type":"EntryPoint","urlTemplate":"https://ddnet-archive.xyz/?q={search_term_string}"},"query-input":"required name=search_term_string"}},{"@type":"Organization","@id":"https://ddnet-archive.xyz/#organization","name":"DDNet Archive","url":"https://ddnet-archive.xyz/","logo":{"@type":"ImageObject","url":"https://ddnet-archive.xyz/icon-512.png","width":512,"height":512},"sameAs":["https://github.com/iHernux/ddnet"]},{"@type":"WebApplication","@id":"https://ddnet-archive.xyz/#app","name":"DDNet Archive","url":"https://ddnet-archive.xyz/","applicationCategory":"GameApplication","operatingSystem":"Any","browserRequirements":"Requires JavaScript","description":"Interactive DDNet map catalog, live server tracker, player statistics, duo comparator, and Tee skin customizer.","offers":{"@type":"Offer","price":"0","priceCurrency":"USD"}}]}</script>
 <!-- JSONLD_END -->
 <link rel="icon" type="image/x-icon" href="/favicon.ico" />
 <link rel="icon" type="image/png" sizes="32x32" href="/favicon-32x32.png" />
@@ -48,7 +46,7 @@
 <link rel="preconnect" href="https://fonts.googleapis.com" />
 <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
 <link href="https://fonts.googleapis.com/css2?family=Plus+Jakarta+Sans:wght@400;500;600;700&family=JetBrains+Mono:wght@400;500&display=swap" rel="stylesheet" />
-<link rel="stylesheet" href="/assets/styles.css?v=20261126a" />
+<link rel="stylesheet" href="/assets/styles.css?v=20261128a" />
 </head>
 <body>
   <header class="topbar">
@@ -72,17 +70,20 @@
       </nav>
 
       <div class="topbar-actions">
-        <a class="icon-btn" id="steamBtn" href="steam://rungameid/412220" data-i18n-title="steamBtnTitle" title="Launch DDNet on Steam"></a>
-        <a class="icon-btn" id="githubBtn" href="https://github.com/ddnet/ddnet-maps" target="_blank" rel="noopener noreferrer" data-i18n-title="githubBtnTitle" title="Official ddnet-maps GitHub repository"></a>
+        <a class="icon-btn" id="steamBtn" href="steam://rungameid/412220" rel="nofollow" data-i18n-title="steamBtnTitle" title="Launch DDNet on Steam" aria-label="Launch DDNet on Steam"><span class="sr-only">Launch DDNet on Steam</span></a>
+        <a class="icon-btn" id="githubBtn" href="https://github.com/ddnet/ddnet-maps" target="_blank" rel="noopener noreferrer" data-i18n-title="githubBtnTitle" title="Official ddnet-maps GitHub repository" aria-label="Official ddnet-maps GitHub repository"><span class="sr-only">GitHub</span></a>
         <button type="button" class="icon-btn" id="guideBtn" data-i18n-title="guideBtnTitle" title="Map setup &amp; Dummy Fly guide" aria-label="Map setup &amp; Dummy Fly guide"></button>
         <button type="button" class="lang-btn" id="langBtn" data-i18n-title="langBtnTitle" title="Switch language (TR / EN)">EN</button>
-        <button type="button" class="icon-btn" id="themeBtn" data-i18n-title="themeBtnTitle" title="Toggle color theme"></button>
+        <button type="button" class="icon-btn" id="themeBtn" data-i18n-title="themeBtnTitle" title="Toggle color theme" aria-label="Toggle color theme"></button>
       </div>
     </div>
   </header>
 
   <main class="container">
-    <h1 id="homeSrHeading" class="sr-only">DDNet Archive – Live DDNet Map Catalog, Rankings &amp; Player Statistics</h1>
+    <div class="page-intro" id="pageIntro">
+      <h1 id="pageHeading" class="page-intro-title">DDNet Archive – Official DDNet Map Catalog &amp; Player Stats</h1>
+      <p id="pageSubheading" class="page-intro-desc">Browse 2,400+ official DDraceNetwork maps across 14 difficulty categories, check live servers, inspect player rankings, and explore custom skins.</p>
+    </div>
     <!-- SSR_SLOT -->
     <!-- Maps View -->
     <section id="mapsView" aria-label="Maps">
@@ -124,8 +125,8 @@
             </button>
 
             <div class="segmented" role="group" aria-label="View mode">
-              <button type="button" class="seg-btn active" id="viewGridBtn" data-view="grid" data-i18n-title="viewGridTitle" title="Card grid view"></button>
-              <button type="button" class="seg-btn" id="viewTableBtn" data-view="table" data-i18n-title="viewTableTitle" title="Table view"></button>
+              <button type="button" class="seg-btn active" id="viewGridBtn" data-view="grid" data-i18n-title="viewGridTitle" title="Card grid view" aria-label="Card grid view"></button>
+              <button type="button" class="seg-btn" id="viewTableBtn" data-view="table" data-i18n-title="viewTableTitle" title="Table view" aria-label="Table view"></button>
             </div>
           </div>
         </div>
@@ -504,7 +505,7 @@
   <div class="modal-backdrop hidden" id="mapModal" role="dialog" aria-modal="true" aria-labelledby="mapModalTitle">
     <div class="modal modal-lg">
       <div class="modal-header">
-        <h2 class="modal-title" id="mapModalTitle">Map</h2>
+        <p class="modal-title" id="mapModalTitle">Map</p>
         <button type="button" class="icon-btn" id="mapModalClose" data-i18n-title="closeLabel" aria-label="Close"></button>
       </div>
       <div class="modal-body" id="mapModalBody"></div>
@@ -515,7 +516,7 @@
   <div class="modal-backdrop hidden" id="liveModal" role="dialog" aria-modal="true" aria-labelledby="liveModalTitle">
     <div class="modal modal-md">
       <div class="modal-header">
-        <h2 class="modal-title" id="liveModalTitle" data-i18n="liveModalTitle">Live DDNet Network Status</h2>
+        <p class="modal-title" id="liveModalTitle" data-i18n="liveModalTitle">Live DDNet Network Status</p>
         <button type="button" class="icon-btn" id="liveModalClose" data-i18n-title="closeLabel" aria-label="Close"></button>
       </div>
       <div class="modal-body" id="liveModalBody"></div>
@@ -526,7 +527,7 @@
   <div class="modal-backdrop hidden" id="guideModal" role="dialog" aria-modal="true" aria-labelledby="guideModalTitle">
     <div class="modal modal-lg">
       <div class="modal-header">
-        <h2 class="modal-title" id="guideModalTitle" data-i18n="guideModalTitle">DDNet Guide &amp; Tips</h2>
+        <p class="modal-title" id="guideModalTitle" data-i18n="guideModalTitle">DDNet Guide &amp; Tips</p>
         <button type="button" class="icon-btn" id="guideModalClose" data-i18n-title="closeLabel" aria-label="Close"></button>
       </div>
       <div class="modal-body" id="guideModalBody"></div>
@@ -537,7 +538,7 @@
   <div class="modal-backdrop hidden" id="skinModal" role="dialog" aria-modal="true" aria-labelledby="skinModalTitle">
     <div class="modal modal-lg">
       <div class="modal-header">
-        <h2 class="modal-title" id="skinModalTitle">Skin Studio</h2>
+        <p class="modal-title" id="skinModalTitle">Skin Studio</p>
         <button type="button" class="icon-btn" id="skinModalClose" data-i18n-title="closeLabel" aria-label="Close"></button>
       </div>
       <div class="modal-body" id="skinModalBody"></div>
@@ -548,7 +549,7 @@
   <div class="modal-backdrop hidden" id="playlistModal" role="dialog" aria-modal="true" aria-labelledby="playlistModalTitle">
     <div class="modal modal-md">
       <div class="modal-header">
-        <h2 class="modal-title" id="playlistModalTitle" data-i18n="playlistModalTitle">Map Playlists</h2>
+        <p class="modal-title" id="playlistModalTitle" data-i18n="playlistModalTitle">Map Playlists</p>
         <button type="button" class="icon-btn" id="playlistModalClose" data-i18n-title="closeLabel" aria-label="Close"></button>
       </div>
       <div class="modal-body" id="playlistModalBody"></div>
@@ -558,11 +559,11 @@
   <!-- Image Lightbox -->
   <div class="lightbox-backdrop hidden" id="imageLightbox" role="dialog" aria-modal="true" aria-label="Map image preview">
     <button type="button" class="icon-btn lightbox-close" id="imageLightboxClose" data-i18n-title="closeLabel" aria-label="Close"></button>
-    <img id="imageLightboxImg" class="lightbox-img" src="" alt="" />
+    <img id="imageLightboxImg" class="lightbox-img" alt="Map preview" />
   </div>
 
   <div class="toast" id="toast" role="status" aria-live="polite"></div>
 
-  <script type="module" src="/assets/app.js?v=20261126a"></script>
+  <script type="module" src="/assets/app.js?v=20261128a"></script>
 </body>
 </html>

@@ -1,4 +1,4 @@
-import { icons } from './icons.js?v=20261126a';
+import { icons } from './icons.js?v=20261128a';
 import {
   detectInitialLang,
   escapeAttr,
@@ -11,7 +11,7 @@ import {
   isRecentRelease,
   parseReleaseMs,
   t,
-} from './i18n.js?v=20261126a';
+} from './i18n.js?v=20261128a';
 import {
   fetchMapDetail,
   fetchMaps,
@@ -20,20 +20,20 @@ import {
   fetchPlayerSuggestions,
   fetchServers,
   fetchSkins,
-} from './api.js?v=20261126a';
+} from './api.js?v=20261128a';
 import {
   TILES_LIST,
   POPULAR_TILE_IDS,
   getTileInfo,
   normalizeTileId,
-} from './tiles.js?v=20261126a';
-import { GUIDE_SNIPPETS, renderGuideModalContent } from './guide.js?v=20261126a';
+} from './tiles.js?v=20261128a';
+import { GUIDE_SNIPPETS, renderGuideModalContent } from './guide.js?v=20261128a';
 import {
   buildConfigLines,
   createDefaultBuilderState,
   renderMechanicsGridHtml,
-} from './builder.js?v=20261126a';
-import { renderDuoCompareHtml } from './duo.js?v=20261126a';
+} from './builder.js?v=20261128a';
+import { renderDuoCompareHtml } from './duo.js?v=20261128a';
 import {
   buildSkinConsoleCmds,
   buildSkinImageUrl,
@@ -42,7 +42,7 @@ import {
   hslToDdnetCode,
   loadSkinImage,
   renderTeeToCanvas,
-} from './tee.js?v=20261126a';
+} from './tee.js?v=20261128a';
 import {
   buildPlaylistShareUrl,
   decodePlaylistParam,
@@ -55,7 +55,7 @@ import {
   renderSimilarMapsHtml,
   tx,
   writePlaylists,
-} from './extras.js?v=20261126a';
+} from './extras.js?v=20261128a';
 
 const CATEGORY_ORDER = [
   'Novice',
@@ -454,11 +454,34 @@ function isSsrNotFoundActive() {
   return Boolean(el && el.getAttribute('data-ssr-status') === '404');
 }
 
+function ensurePageIntro() {
+  let intro = document.getElementById('pageIntro');
+  if (intro) return intro;
+  const main = document.querySelector('main.container');
+  if (!main) return null;
+  intro = document.createElement('div');
+  intro.className = 'page-intro';
+  intro.id = 'pageIntro';
+  intro.innerHTML =
+    '<h1 id="pageHeading" class="page-intro-title">DDNet Archive – Official DDNet Map Catalog &amp; Player Stats</h1>' +
+    '<p id="pageSubheading" class="page-intro-desc">Browse 2,400+ official DDraceNetwork maps across 14 difficulty categories, check live servers, inspect player rankings, and explore custom skins.</p>';
+  main.prepend(intro);
+  return intro;
+}
+
 function clearSsrContent({ force = false } = {}) {
   const el = getSsrElement();
-  if (!el) return;
-  if (!force && el.getAttribute('data-ssr-status') === '404') return;
-  el.remove();
+  if (el) {
+    if (!force && el.getAttribute('data-ssr-status') === '404') return;
+    el.remove();
+  }
+  if (!isSsrNotFoundActive()) {
+    ensurePageIntro();
+  }
+}
+
+function encodeUriSegment(str) {
+  return encodeURIComponent(String(str ?? '')).replace(/'/g, '%27');
 }
 
 function decodePathSegment(segment) {
@@ -624,40 +647,71 @@ function loadStateFromUrl() {
   }
 }
 
+const DEFAULT_HEADING = 'DDNet Archive – Official DDNet Map Catalog & Player Stats';
+const DEFAULT_SUBHEADING =
+  'Browse 2,400+ official DDraceNetwork maps across 14 difficulty categories, check live servers, inspect player rankings, and explore custom skins.';
+
 function updateDocumentMeta(nextPath) {
   let nextTitle = DEFAULT_TITLE;
   let canonicalPath = '/';
+  let nextHeading = DEFAULT_HEADING;
+  let nextSubheading = DEFAULT_SUBHEADING;
 
   if (state.activeMapName) {
     const pool = state.combinedMaps.length ? state.combinedMaps : state.maps;
     const found = pool.find((m) => m.name === state.activeMapName);
     if (found && found.difficulty !== null && found.difficulty !== undefined) {
-      nextTitle = `${found.name} (${found.type}, ${found.difficulty}★) – DDNet Map | DDNet Archive`;
+      nextTitle = `${found.name} (${found.type}, ${found.difficulty}★) – DDNet Archive`;
+      nextHeading = `${found.name} – ${found.type} (${found.difficulty}★)`;
+      nextSubheading = `${found.points ?? 0} points${found.mapper ? ` · Mapped by ${found.mapper}` : ''}. View rankings, records, tiles, and live servers.`;
     } else if (found) {
       nextTitle = `${found.name} (${found.type}) – Live Map | DDNet Archive`;
+      nextHeading = `${found.name} – ${found.type}`;
+      nextSubheading = `Live community map currently tracked across active servers.`;
     } else {
-      nextTitle = `${state.activeMapName} – DDNet Map | DDNet Archive`;
+      nextTitle = `${state.activeMapName} – DDNet Archive`;
+      nextHeading = state.activeMapName;
+      nextSubheading = 'Inspect map details, records, tiles, and live servers.';
     }
-    canonicalPath = `/map/${encodeURIComponent(state.activeMapName)}`;
+    canonicalPath = `/map/${encodeUriSegment(state.activeMapName)}`;
   } else if (state.tab === 'skins') {
     nextTitle = state.activeSkinName
       ? `${state.activeSkinName} – DDNet Skins | DDNet Archive`
       : 'Official DDNet Skins Archive & Customizer – DDNet Archive';
+    nextHeading = state.activeSkinName
+      ? `${state.activeSkinName} – DDNet Skin`
+      : 'Official DDNet Skins Archive & Customizer';
+    nextSubheading =
+      'Browse official and community DDNet Tee skins, filter UHD textures, and customize body/feet colors live.';
     canonicalPath = '/';
   } else if (state.tab === 'servers') {
     const commName = state.serverCommunity ? getCommunityInfo(state.serverCommunity).name : '';
     nextTitle = commName
       ? `${commName} Live Servers – DDNet Archive`
       : 'Live DDNet, KoG & Community Servers – DDNet Archive';
+    nextHeading = commName
+      ? `${commName} Live Servers`
+      : 'Live DDNet, KoG & Community Servers';
+    nextSubheading =
+      'Track real-time player counts, active maps, and server rosters across DDraceNetwork and community networks.';
     canonicalPath = '/';
   } else if (state.tab === 'players' && state.playerSubMode === 'duo' && state.duoPlayerA && state.duoPlayerB) {
     nextTitle = `${state.duoPlayerA} vs ${state.duoPlayerB} – DDNet Archive`;
+    nextHeading = `${state.duoPlayerA} vs ${state.duoPlayerB} – Duo Comparison`;
+    nextSubheading =
+      'Compare shared finishes, head-to-head times, and category points between two DDNet players.';
     canonicalPath = '/';
   } else if (state.tab === 'players' && state.activePlayerName) {
     nextTitle = `${state.activePlayerName} – DDNet Player Stats | DDNet Archive`;
+    nextHeading = `${state.activePlayerName} – Player Profile`;
+    nextSubheading =
+      'Inspect DDNet points, global ranks, category progress, recent finishes, and favorite partners.';
     canonicalPath = '/';
   } else if (state.tab === 'players') {
     nextTitle = 'DDNet & Network Player Stats – DDNet Archive';
+    nextHeading = 'DDNet & Network Player Stats';
+    nextSubheading =
+      'Search any DDNet player profile, check online server status, or run a head-to-head duo comparison.';
     canonicalPath = '/';
   } else if (state.category) {
     const pool = state.combinedMaps.length ? state.combinedMaps : state.maps;
@@ -667,12 +721,18 @@ function updateDocumentMeta(nextPath) {
     nextTitle = catCount
       ? `${state.category} DDNet Maps (${catCount} Maps) – DDNet Archive`
       : `${state.category} DDNet Maps – DDNet Archive`;
+    nextHeading = catCount
+      ? `${state.category} DDNet Maps (${catCount})`
+      : `${state.category} DDNet Maps`;
+    nextSubheading = `Browse official ${state.category} DDraceNetwork maps, filter by star difficulty or mechanic, and inspect records.`;
     canonicalPath = CATEGORY_ORDER.includes(state.category)
-      ? `/category/${encodeURIComponent(state.category)}`
+      ? `/category/${encodeUriSegment(state.category)}`
       : '/';
   } else if (state.tile) {
     const tInfo = getTileInfo(state.tile, state.lang);
     nextTitle = `${tInfo.name} DDNet Maps – DDNet Archive`;
+    nextHeading = `${tInfo.name} DDNet Maps`;
+    nextSubheading = `Explore official DDNet maps featuring the ${tInfo.name} tile mechanic.`;
     canonicalPath = '/';
   } else if (nextPath === '/') {
     canonicalPath = '/';
@@ -683,6 +743,12 @@ function updateDocumentMeta(nextPath) {
   if (canonicalEl) {
     canonicalEl.setAttribute('href', `${SITE_ORIGIN}${canonicalPath}`);
   }
+  if (!getSsrElement()) {
+    const headingEl = document.getElementById('pageHeading');
+    if (headingEl) headingEl.textContent = nextHeading;
+    const subEl = document.getElementById('pageSubheading');
+    if (subEl) subEl.textContent = nextSubheading;
+  }
 }
 
 function syncUrl({ push = false } = {}) {
@@ -692,7 +758,7 @@ function syncUrl({ push = false } = {}) {
   const params = new URLSearchParams();
 
   if (state.activeMapName) {
-    nextPath = `/map/${encodeURIComponent(state.activeMapName)}`;
+    nextPath = `/map/${encodeUriSegment(state.activeMapName)}`;
   } else if (state.tab === 'players') {
     nextPath = '/';
     params.set('tab', 'players');
@@ -718,7 +784,7 @@ function syncUrl({ push = false } = {}) {
     if (state.serverSearch.trim()) params.set('q', state.serverSearch.trim());
   } else {
     if (state.category && CATEGORY_ORDER.includes(state.category)) {
-      nextPath = `/category/${encodeURIComponent(state.category)}`;
+      nextPath = `/category/${encodeUriSegment(state.category)}`;
     } else {
       nextPath = '/';
       if (state.category) params.set('cat', state.category);
@@ -799,8 +865,8 @@ function applyTranslations() {
 }
 
 function hydrateStaticIcons() {
-  $('steamBtn').innerHTML = icons.gamepad(16);
-  $('githubBtn').innerHTML = icons.github(16);
+  $('steamBtn').innerHTML = `${icons.gamepad(16)}<span class="sr-only">Launch DDNet on Steam</span>`;
+  $('githubBtn').innerHTML = `${icons.github(16)}<span class="sr-only">GitHub</span>`;
   $('guideBtn').innerHTML = icons.helpCircle(16);
   $('mapSearchIcon').innerHTML = icons.search(15);
   $('mapSearchClear').innerHTML = icons.x(14);
@@ -1071,7 +1137,7 @@ function renderCategoryStrip() {
     }
     const active = state.category === name ? ' active' : '';
     const href = CATEGORY_ORDER.includes(name)
-      ? `/category/${encodeURIComponent(name)}`
+      ? `/category/${encodeUriSegment(name)}`
       : `/?cat=${encodeURIComponent(name)}`;
     html += `<a href="${escapeAttr(href)}" class="cat-pill${active}" data-cat-filter="${escapeAttr(name)}" data-cat="${escapeAttr(name)}">
       <span class="cat-dot" aria-hidden="true"></span>
@@ -1606,8 +1672,8 @@ function renderMapsTable(maps) {
     const commIcon = safeHttpUrl(commInfo?.icon);
 
     const thumbHtml = m.thumbnail
-      ? `<div class="thumb-sm"><img src="${escapeAttr(m.thumbnail)}" alt="" loading="lazy" decoding="async" /></div>`
-      : `<div class="thumb-sm thumb-sm-live">${commIcon ? `<img src="${escapeAttr(commIcon)}" alt="" loading="lazy" />` : icons.server(13)}</div>`;
+      ? `<div class="thumb-sm"><img src="${escapeAttr(m.thumbnail)}" alt="" width="360" height="225" loading="lazy" decoding="async" /></div>`
+      : `<div class="thumb-sm thumb-sm-live">${commIcon ? `<img src="${escapeAttr(commIcon)}" alt="" width="18" height="18" loading="lazy" />` : icons.server(13)}</div>`;
 
     const diffCell =
       m.difficulty !== null && m.difficulty !== undefined
@@ -1647,7 +1713,7 @@ function renderMapsTable(maps) {
           ${thumbHtml}
           <div class="map-cell-text">
             <div class="map-cell-title">
-              <a href="/map/${encodeURIComponent(m.name)}" class="map-name-btn" data-open-map="${escapeAttr(m.name)}">${escapeHtml(m.name)}</a>
+              <a href="/map/${encodeUriSegment(m.name)}" class="map-name-btn" data-open-map="${escapeAttr(m.name)}">${escapeHtml(m.name)}</a>
               ${doneHtml}
               ${recent ? `<span class="new-tag">${escapeHtml(tr('newBadge'))}</span>` : ''}
               ${m.livePlayers > 0 ? `<span class="live-badge tabular"><span class="live-dot" aria-hidden="true"></span>${m.livePlayers}</span>` : ''}
@@ -1665,7 +1731,7 @@ function renderMapsTable(maps) {
         <div class="row-actions-group">
           ${
             dlUrl
-              ? `<a href="${escapeAttr(dlUrl)}" class="row-icon-btn" download="${escapeAttr(`${m.name}.map`)}" data-download-map="${escapeAttr(m.name)}" title="${escapeAttr(tr('downloadMapTitle'))}" aria-label="${escapeAttr(tr('downloadMapTitle'))}">${icons.download(14)}</a>`
+              ? `<a href="${escapeAttr(dlUrl)}" class="row-icon-btn" rel="nofollow" download="${escapeAttr(`${m.name}.map`)}" data-download-map="${escapeAttr(m.name)}" title="${escapeAttr(tr('downloadMapTitle'))}" aria-label="${escapeAttr(tr('downloadMapTitle'))}">${icons.download(14)}</a>`
               : ''
           }
           <button type="button" class="row-icon-btn" data-copy-map="${escapeAttr(m.name)}" title="${escapeAttr(tr('copyCmd'))}" aria-label="${escapeAttr(tr('copyCmd'))}">
@@ -1688,9 +1754,9 @@ function renderMapsGrid(maps) {
     const commIcon = safeHttpUrl(commInfo?.icon);
 
     const thumbContent = m.thumbnail
-      ? `<img src="${escapeAttr(m.thumbnail)}" alt="${escapeAttr(m.name)}" loading="lazy" decoding="async" />`
+      ? `<img src="${escapeAttr(m.thumbnail)}" alt="${escapeAttr(m.name)}" width="360" height="225" loading="lazy" decoding="async" />`
       : `<div class="card-thumb-live" data-cat="${escapeAttr(m.type)}">
-          ${commIcon ? `<img class="card-thumb-comm-icon" src="${escapeAttr(commIcon)}" alt="" loading="lazy" />` : `<span class="card-thumb-fallback-icon">${icons.map(24)}</span>`}
+          ${commIcon ? `<img class="card-thumb-comm-icon" src="${escapeAttr(commIcon)}" alt="" width="34" height="34" loading="lazy" />` : `<span class="card-thumb-fallback-icon">${icons.map(24)}</span>`}
           <span class="card-thumb-mode">${escapeHtml(m.gameType || m.type)}</span>
         </div>`;
 
@@ -1736,7 +1802,7 @@ function renderMapsGrid(maps) {
           <div class="card-thumb-actions">
             ${
               dlUrl
-                ? `<a href="${escapeAttr(dlUrl)}" class="row-icon-btn card-dl-btn" download="${escapeAttr(`${m.name}.map`)}" data-download-map="${escapeAttr(m.name)}" title="${escapeAttr(tr('downloadMapTitle'))}" aria-label="${escapeAttr(tr('downloadMapTitle'))}">${icons.download(14)}</a>`
+                ? `<a href="${escapeAttr(dlUrl)}" class="row-icon-btn card-dl-btn" rel="nofollow" download="${escapeAttr(`${m.name}.map`)}" data-download-map="${escapeAttr(m.name)}" title="${escapeAttr(tr('downloadMapTitle'))}" aria-label="${escapeAttr(tr('downloadMapTitle'))}">${icons.download(14)}</a>`
                 : ''
             }
             <button type="button" class="row-icon-btn${isFav ? ' fav-active' : ''}" data-toggle-fav="${escapeAttr(m.name)}" title="${escapeAttr(tr('toggleFav'))}" aria-label="${escapeAttr(tr('toggleFav'))}">
@@ -1747,7 +1813,7 @@ function renderMapsGrid(maps) {
       </div>
       <div class="card-body">
         <div class="card-title-row">
-          <a href="/map/${encodeURIComponent(m.name)}" class="card-title" data-open-map="${escapeAttr(m.name)}">${escapeHtml(m.name)}</a>
+          <a href="/map/${encodeUriSegment(m.name)}" class="card-title" data-open-map="${escapeAttr(m.name)}">${escapeHtml(m.name)}</a>
           ${renderCategoryBadge(m.type)}
         </div>
         <div class="card-mapper">${subtitleHtml}</div>
@@ -2017,7 +2083,7 @@ function renderMapModalShell(base, detail = null) {
       detail?.communities?.some((c) => c.id === 'kog');
 
     actionsHtml = `
-      ${dlUrl ? `<a class="btn btn-primary btn-sm" href="${escapeAttr(dlUrl)}" download="${escapeAttr(`${mapName}.map`)}" data-download-map="${escapeAttr(mapName)}">${icons.download(14)}<span>${escapeHtml(tr('mapDetailDownloadMap'))}</span></a>` : ''}
+      ${dlUrl ? `<a class="btn btn-primary btn-sm" rel="nofollow" href="${escapeAttr(dlUrl)}" download="${escapeAttr(`${mapName}.map`)}" data-download-map="${escapeAttr(mapName)}">${icons.download(14)}<span>${escapeHtml(tr('mapDetailDownloadMap'))}</span></a>` : ''}
       <a class="btn btn-sm" href="${escapeAttr(statusUrl)}" target="_blank" rel="noopener noreferrer">${icons.externalLink(14)}<span>${escapeHtml(tr('mapDetailStatusTwBtn'))}</span></a>
       ${hasKog ? `<a class="btn btn-sm" href="https://kog.tw/#p=maps&map=${encodeURIComponent(mapName)}" target="_blank" rel="noopener noreferrer">${icons.externalLink(14)}<span>${escapeHtml(tr('mapDetailKogBtn'))}</span></a>` : ''}
       <button type="button" class="btn btn-sm" data-copy-map="${escapeAttr(mapName)}">${icons.copy(14)}<span>${escapeHtml(tr('mapDetailCopyBtn'))}</span></button>
@@ -2025,13 +2091,13 @@ function renderMapModalShell(base, detail = null) {
       <button type="button" class="btn btn-sm" data-toggle-map-playlist="${escapeAttr(mapName)}">${escapeHtml(tx(state.lang, 'playlistAddTo'))}</button>
     `;
   } else {
-    const website = detail?.website || base.website || `https://ddnet.org/maps/${encodeURIComponent(mapName)}`;
+    const website = detail?.website || base.website || `https://ddnet.org/maps/${encodeUriSegment(mapName)}`;
     const webPreview =
       detail?.web_preview ||
       base.webPreview ||
       `https://ddnet.org/mappreview/?map=${encodeURIComponent(mapName)}`;
     actionsHtml = `
-      ${dlUrl ? `<a class="btn btn-primary btn-sm" href="${escapeAttr(dlUrl)}" download="${escapeAttr(`${mapName}.map`)}" data-download-map="${escapeAttr(mapName)}">${icons.download(14)}<span>${escapeHtml(tr('mapDetailDownloadMap'))}</span></a>` : ''}
+      ${dlUrl ? `<a class="btn btn-primary btn-sm" rel="nofollow" href="${escapeAttr(dlUrl)}" download="${escapeAttr(`${mapName}.map`)}" data-download-map="${escapeAttr(mapName)}">${icons.download(14)}<span>${escapeHtml(tr('mapDetailDownloadMap'))}</span></a>` : ''}
       <a class="btn btn-sm" href="${escapeAttr(webPreview)}" target="_blank" rel="noopener noreferrer">${icons.eye(14)}<span>${escapeHtml(tr('mapDetailPreviewBtn'))}</span></a>
       <a class="btn btn-sm" href="${escapeAttr(website)}" target="_blank" rel="noopener noreferrer">${icons.externalLink(14)}<span>${escapeHtml(tr('mapDetailDdnetBtn'))}</span></a>
       <button type="button" class="btn btn-sm" data-copy-map="${escapeAttr(mapName)}">${icons.copy(14)}<span>${escapeHtml(tr('mapDetailCopyBtn'))}</span></button>
@@ -2044,7 +2110,7 @@ function renderMapModalShell(base, detail = null) {
     ${
       thumbnail
         ? `<div class="modal-hero modal-hero-zoom" role="button" tabindex="0" data-zoom-image="${escapeAttr(thumbnail)}" data-zoom-alt="${escapeAttr(mapName)}" title="${escapeAttr(tr('mapImageZoomHint'))}">
-            <img id="mapModalHeroImg" src="${escapeAttr(thumbnail)}" alt="${escapeAttr(mapName)}" />
+            <img id="mapModalHeroImg" src="${escapeAttr(thumbnail)}" alt="${escapeAttr(mapName)}" width="360" height="225" />
             <span class="modal-hero-zoom-badge">${icons.maximize(13)}<span>${escapeHtml(tr('mapImageZoomHint'))}</span></span>
           </div>`
         : ''
@@ -2265,7 +2331,7 @@ function openImageLightbox(src, alt = '') {
 
 function closeImageLightbox() {
   $('imageLightbox').classList.add('hidden');
-  $('imageLightboxImg').src = '';
+  $('imageLightboxImg').removeAttribute('src');
   syncBodyScrollLock();
 }
 
@@ -2285,7 +2351,7 @@ function renderMapTilesSection(tiles) {
           const info = getTileInfo(tile, state.lang);
           const active = selected === tile;
           return `<button type="button" class="tile-chip${active ? ' active' : ''}" data-inspect-tile="${escapeAttr(tile)}" title="${escapeAttr(info.name)}" aria-label="${escapeAttr(info.name)}" aria-pressed="${active ? 'true' : 'false'}">
-            <img src="${escapeAttr(info.iconUrl)}" alt="${escapeAttr(info.name)}" loading="lazy" />
+            <img src="${escapeAttr(info.iconUrl)}" alt="${escapeAttr(info.name)}" width="22" height="22" loading="lazy" />
           </button>`;
         })
         .join('')}
@@ -2328,7 +2394,7 @@ function renderMapRecordsTab(detail, tab) {
         .map((r, i) => {
           const name = r.player || r.name || '?';
           const flag = r.country
-            ? `<img class="flag-img" src="https://ddnet.org/countryflags/${encodeURIComponent(r.country)}.png" alt="" loading="lazy" />`
+            ? `<img class="flag-img" src="https://ddnet.org/countryflags/${encodeURIComponent(r.country)}.png" alt="" width="16" height="11" loading="lazy" />`
             : '';
           return `<div class="list-row">
             <div class="list-row-left">
@@ -2376,7 +2442,7 @@ function renderMapRecordsTab(detail, tab) {
         const name = item.player || item.name || '?';
         const count = item.num ?? item.finishes ?? 0;
         const flag = item.country
-          ? `<img class="flag-img" src="https://ddnet.org/countryflags/${encodeURIComponent(item.country)}.png" alt="" loading="lazy" />`
+          ? `<img class="flag-img" src="https://ddnet.org/countryflags/${encodeURIComponent(item.country)}.png" alt="" width="16" height="11" loading="lazy" />`
           : '';
         return `<div class="list-row">
           <div class="list-row-left">
@@ -2535,7 +2601,7 @@ function renderLiveModal() {
             return `<div class="list-row">
               <div class="list-row-left">
                 <span class="rank-num${i < 3 ? ' top3' : ''}">${i + 1}.</span>
-                <a href="/map/${encodeURIComponent(m.name)}" class="map-name-btn" data-live-open-map="${escapeAttr(m.name)}">${escapeHtml(m.name)}</a>
+                <a href="/map/${encodeUriSegment(m.name)}" class="map-name-btn" data-live-open-map="${escapeAttr(m.name)}">${escapeHtml(m.name)}</a>
                 ${cat ? renderCategoryBadge(cat) : ''}
               </div>
               <div class="list-row-right tabular">
@@ -2765,12 +2831,12 @@ function renderServerCard(s, index = null) {
 
   const thumbHtml =
     s.mapName && officialMap?.thumbnail
-      ? `<a href="/map/${encodeURIComponent(s.mapName)}" class="server-thumb" data-open-map="${escapeAttr(s.mapName)}" title="${escapeAttr(s.mapName)}">
-          <img src="${escapeAttr(officialMap.thumbnail)}" alt="${escapeAttr(s.mapName)}" loading="lazy" decoding="async" />
+      ? `<a href="/map/${encodeUriSegment(s.mapName)}" class="server-thumb" data-open-map="${escapeAttr(s.mapName)}" title="${escapeAttr(s.mapName)}">
+          <img src="${escapeAttr(officialMap.thumbnail)}" alt="${escapeAttr(s.mapName)}" width="360" height="225" loading="lazy" decoding="async" />
         </a>`
       : s.mapName
-        ? `<a href="/map/${encodeURIComponent(s.mapName)}" class="server-thumb server-thumb-fallback" data-open-map="${escapeAttr(s.mapName)}" title="${escapeAttr(s.mapName)}">
-            ${commIcon ? `<img src="${escapeAttr(commIcon)}" alt="" loading="lazy" />` : icons.map(16)}
+        ? `<a href="/map/${encodeUriSegment(s.mapName)}" class="server-thumb server-thumb-fallback" data-open-map="${escapeAttr(s.mapName)}" title="${escapeAttr(s.mapName)}">
+            ${commIcon ? `<img src="${escapeAttr(commIcon)}" alt="" width="20" height="20" loading="lazy" />` : icons.map(16)}
             <span>${escapeHtml(s.gameType || commLabel || 'Map')}</span>
           </a>`
         : `<div class="server-thumb server-thumb-fallback">${icons.server(16)}</div>`;
@@ -2789,7 +2855,7 @@ function renderServerCard(s, index = null) {
         <div class="server-sub-row">
           ${
             s.mapName
-              ? `<a href="/map/${encodeURIComponent(s.mapName)}" class="server-map-link" data-open-map="${escapeAttr(s.mapName)}">
+              ? `<a href="/map/${encodeUriSegment(s.mapName)}" class="server-map-link" data-open-map="${escapeAttr(s.mapName)}">
                   ${icons.map(12)}
                   <span>${escapeHtml(s.mapName)}</span>
                   ${officialMap ? `<span class="server-map-stars">${officialMap.difficulty}★</span>` : ''}
@@ -3264,6 +3330,7 @@ function bindDuoAutocomplete(inputId, boxId, side) {
 }
 
 function renderPlayerView() {
+  clearSsrContent();
   const isDuo = state.playerSubMode === 'duo';
   $('playerModeProfileBtn')?.classList.toggle('active', !isDuo);
   $('playerModeDuoBtn')?.classList.toggle('active', isDuo);
@@ -3328,7 +3395,7 @@ function renderPlayerView() {
             ${liveSession.gameType ? `<span class="mode-pill">${escapeHtml(liveSession.gameType)}</span>` : ''}
             ${
               liveSession.mapName
-                ? `<a href="/map/${encodeURIComponent(liveSession.mapName)}" class="map-name-btn" data-open-map="${escapeAttr(liveSession.mapName)}">${escapeHtml(liveSession.mapName)}</a>`
+                ? `<a href="/map/${encodeUriSegment(liveSession.mapName)}" class="map-name-btn" data-open-map="${escapeAttr(liveSession.mapName)}">${escapeHtml(liveSession.mapName)}</a>`
                 : ''
             }
           </div>
@@ -3434,7 +3501,7 @@ function renderPlayerView() {
                       const mapName = f.map || '?';
                       return `<div class="list-row">
                         <div class="list-row-left">
-                          <a href="/map/${encodeURIComponent(mapName)}" class="map-name-btn" data-open-map="${escapeAttr(mapName)}">${escapeHtml(mapName)}</a>
+                          <a href="/map/${encodeUriSegment(mapName)}" class="map-name-btn" data-open-map="${escapeAttr(mapName)}">${escapeHtml(mapName)}</a>
                           ${f.type ? renderCategoryBadge(f.type) : ''}
                         </div>
                         <div class="list-row-right">
@@ -3652,6 +3719,7 @@ async function loadSkinsCatalog({ forceRefresh = false } = {}) {
 }
 
 function renderSkinsView({ pushUrl = false } = {}) {
+  clearSsrContent();
   const sk = $('skinsSkeleton');
   const errEl = $('skinsError');
   const emptyEl = $('skinsEmpty');

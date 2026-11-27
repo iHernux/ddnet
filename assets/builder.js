@@ -1,5 +1,5 @@
-import { escapeAttr, escapeHtml, t } from './i18n.js?v=20261126a';
-import { TILES_LIST, getTileInfo } from './tiles.js?v=20261126a';
+import { escapeAttr, escapeHtml, t } from './i18n.js?v=20261128a';
+import { TILES_LIST, getTileInfo } from './tiles.js?v=20261128a';
 
 export const BUILDER_KEYS = [
   'r',

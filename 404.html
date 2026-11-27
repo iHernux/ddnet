@@ -1,0 +1,78 @@
+<!DOCTYPE html>
+<html lang="en" data-theme="dark">
+<head>
+<meta charset="UTF-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1.0, viewport-fit=cover" />
+<script>
+// Prevent dark/light theme flash before CSS parses
+(function() {
+  try {
+    var saved = localStorage.getItem('ddnet_theme');
+    document.documentElement.dataset.theme = saved === 'light' ? 'light' : 'dark';
+  } catch (e) {
+    document.documentElement.dataset.theme = 'dark';
+  }
+})();
+</script>
+<title>404 – Page Not Found | DDNet Archive</title>
+<meta name="robots" content="noindex, follow" />
+<meta name="theme-color" content="#0d1117" />
+<link rel="manifest" href="/site.webmanifest" />
+<link rel="icon" type="image/x-icon" href="/favicon.ico" />
+<link rel="icon" type="image/png" sizes="32x32" href="/favicon-32x32.png" />
+<link rel="icon" type="image/png" sizes="16x16" href="/favicon-16x16.png" />
+<link rel="apple-touch-icon" sizes="180x180" href="/apple-touch-icon.png" />
+<link rel="preconnect" href="https://fonts.googleapis.com" />
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
+<link href="https://fonts.googleapis.com/css2?family=Plus+Jakarta+Sans:wght@400;500;600;700&display=swap" rel="stylesheet" />
+<link rel="stylesheet" href="/assets/styles.css?v=20261128a" />
+</head>
+<body>
+  <header class="topbar">
+    <div class="topbar-inner">
+      <div class="topbar-left">
+        <a href="/" class="brand">
+          <img src="/apple-touch-icon.png" alt="DDNet" class="brand-logo" width="26" height="26" />
+          <span class="brand-name">DDNet Archive</span>
+        </a>
+      </div>
+      <nav class="nav-tabs" aria-label="Primary">
+        <a href="/" class="nav-tab">Maps</a>
+        <a href="/?tab=servers" class="nav-tab">Servers</a>
+        <a href="/?tab=players" class="nav-tab">Players</a>
+        <a href="/?tab=skins" class="nav-tab">Skins</a>
+      </nav>
+    </div>
+  </header>
+
+  <main class="container">
+    <section class="ssr-block ssr-not-found" data-ssr-status="404">
+      <h1>404 – Page Not Found</h1>
+      <p class="ssr-lead">
+        The page you requested does not exist on DDNet Archive. Browse the official DDNet map catalog or jump to a difficulty category below.
+      </p>
+      <div class="ssr-actions" style="margin-bottom: 14px;">
+        <a class="btn btn-primary btn-sm" href="/">Back to All DDNet Maps</a>
+      </div>
+      <nav class="ssr-cat-nav" aria-label="Top DDNet Map Categories">
+        <a class="ssr-chip" href="/category/Novice">Novice</a>
+        <a class="ssr-chip" href="/category/Moderate">Moderate</a>
+        <a class="ssr-chip" href="/category/Brutal">Brutal</a>
+        <a class="ssr-chip" href="/category/Insane">Insane</a>
+        <a class="ssr-chip" href="/category/Solo">Solo</a>
+      </nav>
+    </section>
+  </main>
+
+  <footer class="footer">
+    <div class="footer-inner">
+      <span>Auto-synced with ddnet.org</span>
+      <span class="footer-links">
+        <span>© hernux</span>
+        <span aria-hidden="true">·</span>
+        <a href="https://github.com/iHernux/ddnet" target="_blank" rel="noopener noreferrer">GitHub</a>
+      </span>
+    </div>
+  </footer>
+</body>
+</html>

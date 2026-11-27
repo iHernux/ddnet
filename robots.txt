@@ -1,6 +1,5 @@
 User-agent: *
 Allow: /
-Disallow: /api/
+Disallow: /api/download
 
 Sitemap: https://ddnet-archive.xyz/sitemap.xml
-
